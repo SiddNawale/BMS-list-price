@@ -1,9 +1,8 @@
 WITH customer_roster AS (
     SELECT
-        reporting_date,
-        company_name_with_id,
-        company_name,
+        reporting_date,-- company_name_with_id,
         company_id,
+        MIN(company_name) AS company_name,
         MAX(
             IFF(
                 product_categorization_product_line = 'Manage'
@@ -877,25 +876,38 @@ WITH customer_roster AS (
                                         )
                                     ) AS automate_legacy_on_prem_units
                                     FROM
-                                        analytics.dbt_baw.growth__obt
+                                        analytics.dbo.growth__obt
                                     WHERE
-                                        reporting_date = '2021-10-01' -- DATEADD(MONTH, -1, DATE_TRUNC(MONTH, CURRENT_DATE))
+                                        reporting_date = '2022-01-01' -- DATEADD(MONTH, -1, DATE_TRUNC(MONTH, CURRENT_DATE)) -- Filter TO refresh DATA yyyy - mm - dd
                                         AND metric_object = 'applied_billings'
                                     GROUP BY
                                         1,
-                                        2,
-                                        3,
-                                        4
+                                        2
+                                    HAVING
+                                        SUM(billings) > 0
+                                ),
+                                customer_2021_stats AS (
+                                    SELECT
+                                        company_id,
+                                        ROUND(SUM(billings)) AS dec_2021_billings,
+                                        ROUND(SUM(arr)) AS dec_2021_arr
+                                    FROM
+                                        analytics.dbo.growth__obt
+                                    WHERE
+                                        reporting_date = '2021-12-01'
+                                        AND metric_object = 'applied_billings'
+                                    GROUP BY
+                                        1
                                     HAVING
                                         SUM(billings) > 0
                                 ),
                                 customer_2020_stats AS (
                                     SELECT
-                                        company_name_with_id,
+                                        company_id,
                                         ROUND(SUM(billings)) AS dec_2020_billings,
                                         ROUND(SUM(arr)) AS dec_2020_arr
                                     FROM
-                                        analytics.dbt_baw.growth__obt
+                                        analytics.dbo.growth__obt
                                     WHERE
                                         reporting_date = '2020-12-01'
                                         AND metric_object = 'applied_billings'
@@ -906,11 +918,11 @@ WITH customer_roster AS (
                                 ),
                                 customer_2019_stats AS (
                                     SELECT
-                                        company_name_with_id,
+                                        company_id,
                                         ROUND(SUM(billings)) AS dec_2019_billings,
                                         ROUND(SUM(arr)) AS dec_2019_arr
                                     FROM
-                                        analytics.dbt_baw.growth__obt
+                                        analytics.dbo.growth__obt
                                     WHERE
                                         reporting_date = '2019-12-01'
                                         AND metric_object = 'applied_billings'
@@ -919,20 +931,75 @@ WITH customer_roster AS (
                                     HAVING
                                         SUM(billings) > 0
                                 ),
-                                customer_2018_stats AS (
+                                contract AS (
+                                    WITH fl AS (
+                                        SELECT
+                                            company_id,
+                                            contract_number,
+                                            product_categorization_arr_reported_product,
+                                            MIN(start_date) AS start_date,
+                                            MAX(end_date) AS end_date
+                                        FROM
+                                            analytics.dbo.growth__obt
+                                        WHERE
+                                            metric_object = 'renewals'
+                                        GROUP BY
+                                            1,
+                                            2,
+                                            3
+                                    ),
+                                    sl AS (
+                                        SELECT
+                                            *,
+                                            IFF(
+                                                end_date < '2022-01-01' :: DATE,
+                                                '2099-01-01' :: DATE,
+                                                end_date
+                                            ) AS dayfilter,
+                                            MIN(dayfilter) over (
+                                                PARTITION BY company_id
+                                                ORDER BY
+                                                    company_id
+                                            ) AS nearestdate,
+                                            IFF(
+                                                nearestdate = end_date,
+                                                1,
+                                                0
+                                            ) AS daysfilterflag
+                                        FROM
+                                            fl
+                                    )
                                     SELECT
-                                        company_name_with_id,
-                                        ROUND(SUM(billings)) AS dec_2018_billings,
-                                        ROUND(SUM(arr)) AS dec_2018_arr
+                                        company_id,
+                                        end_date AS earliest_date,
+                                        LISTAGG(
+                                            contract_number,
+                                            ','
+                                        ) AS contract_number,
+                                        LISTAGG(
+                                            product_categorization_arr_reported_product,
+                                            ','
+                                        ) AS products
                                     FROM
-                                        analytics.dbt_baw.growth__obt
+                                        sl
                                     WHERE
-                                        reporting_date = '2018-12-01'
-                                        AND metric_object = 'applied_billings'
+                                        daysfilterflag = 1
                                     GROUP BY
-                                        1
+                                        1,
+                                        2
+                                ),-- customer_2018_stats AS (
+                                    --
+                                    SELECT
+                                        company_name_with_id,-- ROUND(SUM(billings)) AS dec_2018_billings,-- ROUND(SUM(arr)) AS dec_2018_arr --
+                                    FROM
+                                        analytics.dbt_baw.growth__obt --
+                                    WHERE
+                                        reporting_date = '2018-12-01' --
+                                        AND metric_object = 'applied_billings' --
+                                    GROUP BY
+                                        1 --
                                     HAVING
-                                        SUM(billings) > 0
+                                        SUM(billings) > 0 --
                                 ),
                                 customer_healthscores AS (
                                     SELECT
@@ -994,8 +1061,7 @@ WITH customer_roster AS (
                                 ),
                                 customer_psa_package AS (
                                     SELECT
-                                        company_id,
-                                        company_name_with_id,
+                                        company_id,-- company_name_with_id,
                                         LISTAGG(
                                             DISTINCT IFF(
                                                 product_categorization_product_package = 'Manage'
@@ -1022,15 +1088,14 @@ WITH customer_roster AS (
                                                 )
                                         ) AS psa_package
                                     FROM
-                                        analytics.dbt_baw.growth__obt
+                                        analytics.dbo.growth__obt
                                     WHERE
-                                        reporting_date = '2021-10-01' -- DATEADD(MONTH, -1, DATE_TRUNC(MONTH, CURRENT_DATE))
+                                        reporting_date = '2022-01-01' -- DATEADD(MONTH, -1, DATE_TRUNC(MONTH, CURRENT_DATE)) -- Filter TO refresh DATA yyyy - mm - dd
                                         AND metric_object = 'applied_billings'
                                         AND product_categorization_product_line = 'Manage'
                                         AND billings > 0
                                     GROUP BY
-                                        1,
-                                        2
+                                        1
                                 ),
                                 customer_tenure AS (
                                     SELECT
@@ -1080,29 +1145,32 @@ WITH customer_roster AS (
                                             )
                                         ) AS security_tenure
                                     FROM
-                                        analytics.dbt_baw.growth__obt
+                                        analytics.dbo.growth__obt
                                     GROUP BY
                                         1
                                 )
                                 SELECT
                                     -- customer id cr.company_id,
                                     cr.company_name,
-                                    cr.company_name_with_id,-- CURRENT arr cr.current_arr,- - 2020 arr (
+                                    CONCAT(
+                                        cr.company_id,
+                                        cr.company_name
+                                    ) AS company_name_with_id,-- CURRENT arr cr.current_arr,- - 2020 arr (
+                                        if available
+                                    ) c21.dec_2021_billings,
+                                    c21.dec_2021_arr,- - 2019 arr (
                                         if available
                                     ) c20.dec_2020_billings,
-                                    c20.dec_2020_arr,- - 2019 arr (
+                                    c20.dec_2020_arr,- - 2018 arr (
                                         if available
                                     ) c19.dec_2019_billings,
-                                    c19.dec_2019_arr,- - 2018 arr (
-                                        if available
-                                    ) c18.dec_2018_billings,
-                                    c18.dec_2018_arr,-- customer VALUE -- touch tier COALESCE(
+                                    c19.dec_2019_arr,-- customer VALUE -- touch tier COALESCE(
                                         ctt.touch_tier,
                                         'Tech Touch (due to non-qualifying MRR)'
                                     ) AS touch_tier,-- contract TYPE cct.contract_type,-- it nation MEMBER (
                                         if available
-                                    ) cr.itnation_active_partner,
-                                    cr.itnation_peer_group_active_partner,-- qualitative churn scoring
+                                    ) -- cr.itnation_active_partner,-- NOT present IN raw DATA,
+                                    hence commented cr.itnation_peer_group_active_partner,-- qualitative churn scoring
                                 FROM
                                     salesforce (
                                         if available
@@ -1178,23 +1246,26 @@ WITH customer_roster AS (
                                     psa_legacy_on_prem_arr,
                                     automate_cloud_arr,
                                     automate_on_prem_arr,
-                                    automate_legacy_on_prem_arr,
-                                    control_cloud_arr,
-                                    control_on_prem_arr,
+                                    automate_legacy_on_prem_arr,-- control_cloud_arr,-- control_on_prem_arr,
                                     psa_cloud_units,
                                     psa_on_prem_units,
                                     psa_legacy_on_prem_units,
                                     automate_cloud_units,
                                     automate_on_prem_units,
-                                    automate_legacy_on_prem_units
+                                    automate_legacy_on_prem_units,
+                                    C.contract_number,
+                                    C.earliest_date,
+                                    C.products
                                 FROM
                                     customer_roster cr
+                                    LEFT JOIN customer_2021_stats c21
+                                    ON c21.company_id = cr.company_id
                                     LEFT JOIN customer_2020_stats c20
-                                    ON c20.company_name_with_id = cr.company_name_with_id
+                                    ON c20.company_id = cr.company_id
                                     LEFT JOIN customer_2019_stats c19
-                                    ON c19.company_name_with_id = cr.company_name_with_id
-                                    LEFT JOIN customer_2018_stats c18
-                                    ON c18.company_name_with_id = cr.company_name_with_id
+                                    ON c19.company_id = cr.company_id
+                                    LEFT JOIN contract C
+                                    ON C.company_id = cr.company_id
                                     LEFT JOIN customer_healthscores chs
                                     ON chs.company_id = cr.company_id
                                     LEFT JOIN customer_touch_tier ctt
@@ -1204,6 +1275,6 @@ WITH customer_roster AS (
                                     ON cct.applied_date = cr.reporting_date
                                     AND cct.ship_to = cr.company_id
                                     LEFT JOIN customer_psa_package cpp
-                                    ON cpp.company_name_with_id = cr.company_name_with_id
+                                    ON cpp.company_id = cr.company_id
                                     LEFT JOIN customer_tenure ct
                                     ON ct.company_id = cr.company_id
