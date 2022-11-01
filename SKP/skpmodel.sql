@@ -1,1380 +1,667 @@
 WITH customer_roster AS (
-    SELECT
-        reporting_date,-- company_name_with_id,
-        company_id,
-        MIN(company_name) AS company_name,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'Manage'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS manage_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'Control'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS control_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'Automate'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS automate_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'Sell'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS sell_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'Fortify'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS fortify_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'Command'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS command_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'BrightGauge'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS brightgauge_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'Recover'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS recover_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'Help Desk'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS help_desk_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'ITBoost'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS itboost_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'Perch'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS security_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'IT Nation'
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS itnation_active_partner,
-        MAX(
-            IFF(
-                product_categorization_product_line = 'IT Nation'
-                AND product_categorization_product_package IN (
-                    'Evolve',
-                    'ITN Evolve'
-                )
-                AND billings > 0,
-                1,
-                0
-            )
-        ) AS itnation_peer_group_active_partner,
-        SUM(
-            IFF(
-                item_id IN (
-                    'MNH-UKM-A00-LAITTBASAS',
-                    'MNH-USM-A00-LAITTBASAS',
-                    'MNLICONPREMBMNPRMSUB',
-                    'MNLICONPREMBMNSTDSUB',
-                    'MNG-LIC-SAASMNGBASAS',
-                    'MNG-LIC-SAASITTBASIC',
-                    'MNLICONPREMBITTBASIC',
-                    'MNG-LIC-SAASITTSTAND',
-                    'MNLICONPREMBITTSTDSB',
-                    'MNG-LIC-SAASMNPRMSAS',
-                    'MNG-LIC-SAASMNGSTDSS',
-                    'MNLICONPREMBCWUSERIN',
-                    'MNG-LIC-SAASCWUSERIN',
-                    'MNLICONPREMBCWUSERPR',
-                    'MNG-LIC-SAASCWUSERNM',
-                    'MNG-LIC-SAASCLDCHNAM',
-                    'LEGACYPSACloudChnnel',
-                    'LEGACYSTANDUSERSTND',
-                    'MNLICONPREMBSASPLNSV',
-                    'MNLICONPREMPCWUSERIN',
-                    'MNSASMAININTNAMEUSER',
-                    'MNSASMAINADDNAMEUSER',
-                    'LEGACYPSA-ASSURANCEA',
-                    'LEGACYSKUCLDCHANN',
-                    'MNMAINPRPADDINCLUSER',
-                    'LEGACYSKUAIINUSRSTD',
-                    'MNLICONPREMPCWUSERNM',
-                    'LEGACYPSA-ASSURANCEM',
-                    'LEGACYMACCONBASQ-Q00',
-                    'LEGACYLACWUSERINM01',
-                    'MNMAINPRPINTINCLUSER',
-                    'LEGACYPSA-ASSURANCEQ'
+    SELECT REPORTING_DATE,
+--           COMPANY_NAME_WITH_ID,
+           COMPANY_ID,
+           min(COMPANY_NAME) as COMPANY_NAME,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND BILLINGS > 0, 1,
+                   0))                                                                   AS manage_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Control' AND BILLINGS > 0, 1,
+                   0))                                                                   AS control_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Automate' AND BILLINGS > 0, 1,
+                   0))                                                                   AS automate_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Sell' AND BILLINGS > 0, 1, 0)) AS sell_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Fortify' AND BILLINGS > 0, 1,
+                   0))                                                                   AS fortify_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command' AND BILLINGS > 0, 1,
+                   0))                                                                   AS command_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'BrightGauge' AND BILLINGS > 0, 1,
+                   0))                                                                   AS brightgauge_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Recover' AND BILLINGS > 0, 1,
+                   0))                                                                   AS recover_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk' AND BILLINGS > 0, 1,
+                   0))                                                                   AS help_desk_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'ITBoost' AND BILLINGS > 0, 1,
+                   0))                                                                   AS itboost_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Perch' AND BILLINGS > 0, 1,
+                   0))                                                                   AS security_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'IT Nation' AND BILLINGS > 0, 1,
+                   0))                                                                   AS itnation_active_partner,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'IT Nation' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Evolve', 'ITN Evolve') AND BILLINGS > 0, 1,
+                   0))                                                                   AS itnation_peer_group_active_partner,
+           SUM(IFF(ITEM_ID in (
+                'MNH-UKM-A00-LAITTBASAS',
+                'MNH-USM-A00-LAITTBASAS',
+                'MNLICONPREMBMNPRMSUB',
+                'MNLICONPREMBMNSTDSUB',
+                'MNG-LIC-SAASMNGBASAS',
+                'MNG-LIC-SAASITTBASIC',
+                'MNLICONPREMBITTBASIC',
+                'MNG-LIC-SAASITTSTAND',
+                'MNLICONPREMBITTSTDSB',
+                'MNG-LIC-SAASMNPRMSAS',
+                'MNG-LIC-SAASMNGSTDSS',
+                'MNLICONPREMBCWUSERIN',
+                'MNG-LIC-SAASCWUSERIN',
+                'MNLICONPREMBCWUSERPR',
+                'MNG-LIC-SAASCWUSERNM',
+                'MNG-LIC-SAASCLDCHNAM',
+                'LEGACYPSACloudChnnel',
+                'LEGACYSTANDUSERSTND',
+                'MNLICONPREMBSASPLNSV',
+                'MNLICONPREMPCWUSERIN',
+                'MNSASMAININTNAMEUSER',
+                'MNSASMAINADDNAMEUSER',
+                'LEGACYPSA-ASSURANCEA',
+                'LEGACYSKUCLDCHANN',
+                'MNMAINPRPADDINCLUSER',
+                'LEGACYSKUAIINUSRSTD',
+                'MNLICONPREMPCWUSERNM',
+                'LEGACYPSA-ASSURANCEM',
+                'LEGACYMACCONBASQ-Q00',
+                'LEGACYLACWUSERINM01',
+                'MNMAINPRPINTINCLUSER',
+                'LEGACYPSA-ASSURANCEQ'
                 ),
-                units,
-                0
-            )
-        ) AS psa_units,
-        SUM(
-            IFF(
-                product_categorization_product_line IN (
-                    'Automate',
-                    'Command'
-                )
-                AND product_categorization_product_package IN (
-                    'Automate',
-                    'Desktops',
-                    'Networks',
-                    'Servers'
-                ),
-                units,
-                0
-            )
-        ) AS rmm_units,
-        SUM(
-            IFF(product_categorization_product_line IN ('Command')
-            AND product_categorization_product_package IN ('Desktops'), units, 0)) AS command_desktop_units,
-            SUM(
-                IFF(product_categorization_product_line IN ('Command')
-                AND product_categorization_product_package IN ('Networks'), units, 0)) AS command_network_units,
-                SUM(
-                    IFF(product_categorization_product_line IN ('Command')
-                    AND product_categorization_product_package IN ('Servers'), units, 0)) AS command_server_units,
-                    SUM(
-                        IFF(
-                            product_categorization_product_line IN ('Help Desk'),
-                            units,
-                            0
-                        )
-                    ) AS help_desk_units,
-                    SUM(
-                        IFF(
-                            product_categorization_product_group = 'Network & Endpoint Security'
-                            AND product_categorization_license_service_type = 'SaaS',
-                            units,
-                            0
-                        )
-                    ) AS security_units,
-                    ROUND(SUM(billings)) AS current_billings,
-                    ROUND(SUM(arr)) AS current_arr,-- AS part OF change
-                    ON 04 / 04 based
-                    ON inputs
-                    FROM
-                        pricing
-                        AND packaging team SUM(
-                            IFF(
-                                item_id IN (
-                                    'MNLICONPREMBCLDCNNC3',
-                                    'MNG-LIC-SAASCLDCNNCT',
-                                    'LEGACYLBCLDCNNCTM00',
-                                    'LEGACYMCLDRPRT2CLDR',
-                                    'MNLICSAASMODBDXMEGAA',
-                                    'MNLICONPREMBMNPRMSUB',
-                                    'CWH-USC-M00-ABMNGEPREM',
-                                    'CWH-USD-M00-ABMNGEPREM',
-                                    'CWH-UKD-M00-ABMNGEPREM',
-                                    'MNLICONPREMBMNSTDSUB',
-                                    'MNLICONPREMBCWUSERNM',
-                                    'LEGACYSKUCWUSERNM',
-                                    'MNLICONPREMBTESTENVI',
-                                    'MNG-LIC-SAASCLDDTACC',
-                                    'MNLICONPREMBCWPSAPRI',
-                                    'MNG-LIC-SAASMNGBASAS',
-                                    'MNG-LIC-SAASMNGCHGMT',
-                                    'MNG-LIC-SAASITTBASIC',
-                                    'MNH-UKM-A00-LAITTBASAS',
-                                    'MNH-USM-A00-LAITTBASAS',
-                                    'MNLICONPREMBITTBASIC',
-                                    'MNH-USM-A00-LBITTBASUB',
-                                    'MNG-LIC-SAASITTSTAND',
-                                    'MNLICONPREMBITTSTDSB',
-                                    'MNG-LIC-SAASCWUSERMO',
-                                    'PSA - Monthly Mobile',
-                                    'MNLICONPREMBCWUSERMO',
-                                    'MNLICSAASMODBDXBIGBX',
-                                    'MNLICONPREMBEMAILCON',
-                                    'MNLICONPREMBEMAILCON',
-                                    'MNLICSAASMODEMAILC02',
-                                    'MNLICONPREMBMSPCONCT',
-                                    'MNLICSAASMODMSPCONCT',
-                                    'LEGACYSKUPROINVRY',
-                                    'MNLICONPREMBPROINVRY',
-                                    'MNLICSAASMODPROINVRY',
-                                    'MNLICONPREMBPROCRMNT',
-                                    'MNLICSAASMODPROCRMNT',
-                                    'MNG-LIC-SAASCWUSRFEE',
-                                    'MNG-LIC-SAASMNPRMSAS',
-                                    'MNLICONPREMBSANDBOXB',
-                                    'MNG-LIC-SAASSSANDBOX',
-                                    'MNLICONPREMBTESTOMPM',
-                                    'MNLICONPREMBSANDBOXS',
-                                    'MNG-LIC-SAASMNGSTDSS',
-                                    'MNLICONPREMBMNSVRFEE',
-                                    'AULICONPREMMNSVRFEE',
-                                    'MNLICONPREMBCWUSRCRM',
-                                    'MNG-LIC-SAASCWUSRCRM',
-                                    'MNLICONPREMBCWUSERIN',
-                                    'MNG-LIC-SAASCWUSERIN',
-                                    'MNLICONPREMBCWUSERPR',
-                                    'MNG-LIC-SAASCWUSERNM',
-                                    'MNG-LIC-SAASCWUSERTO',
-                                    'MNLICONPREMBCWUSRSCH',
-                                    'MNG-LIC-SAASCWUSRSCH',
-                                    'MNG-LIC-SAASCLDCHNAM',
-                                    'LEGACYPSACloudChnnel',
-                                    'LEGACYSTANDUSERSTND',
-                                    'MNLICONPREMBSASPLNSV',
-                                    'LEGACYPSASaaSChannel',
-                                    'LEGACYPSASAASPLANSEV',
-                                    'MNLICONPREMPCWUSERIN',
-                                    'MNSASMAININTNAMEUSER',
-                                    'MNSASMAINADDNAMEUSER',
-                                    'LEGACYPSA-ASSURANCEA',
-                                    'LEGACYSKUCLDCHANN',
-                                    'MNMAINPRPADDINCLUSER',
-                                    'LEGACYSKUAIINUSRSTD',
-                                    'MNLICONPREMPCWUSERNM',
-                                    'LEGACYPSA-ASSURANCEM',
-                                    'LEGACYMACCONBASQ-Q00',
-                                    'LEGACYLACWUSERINM01',
-                                    'MNMAINPRPINTINCLUSER',
-                                    'LEGACYPSA-ASSURANCEQ',
-                                    'LEGACYONPREMMONTHLY'
-                                ),
-                                arr,
-                                0
-                            )
-                        ) AS psa_arr,
-                        SUM(
-                            IFF(
-                                product_categorization_product_line = 'Sell',
-                                arr,
-                                0
-                            )
-                        ) AS sell_arr,
-                        SUM(
-                            IFF(
-                                product_categorization_product_line = 'BrightGauge',
-                                arr,
-                                0
-                            )
-                        ) AS brightgauge_arr,
-                        SUM(
-                            IFF(
-                                product_categorization_product_line = 'ITBoost',
-                                arr,
-                                0
-                            )
-                        ) AS itboost_arr,
-                        SUM(
-                            IFF(
-                                product_categorization_product_line IN (
-                                    'Automate',
-                                    'Command'
-                                )
-                                AND product_categorization_product_package IN (
-                                    'Automate',
-                                    'Desktops',
-                                    'Networks',
-                                    'Servers'
-                                ),
-                                arr,
-                                0
-                            )
-                        ) AS rmm_arr,
-                        SUM(
-                            IFF(
-                                product_categorization_product_line IN ('Automate')
-                                AND product_categorization_product_package IN ('Third Party Patching'),
-                                arr,
-                                0
-                            )
-                        ) AS rmm_additional_arr,
-                        SUM(
-                            IFF(
-                                product_categorization_product_line = 'Help Desk',
-                                arr,
-                                0
-                            )
-                        ) AS help_desk_arr,
-                        SUM(
-                            IFF(
-                                product_categorization_product_group = 'Network & Endpoint Security'
-                                AND product_categorization_license_service_type = 'SaaS'
-                                AND LOWER(product_categorization_product_package) <> 'webroot',
-                                arr,
-                                0
-                            )
-                        ) AS security_arr,
-                        SUM(
-                            IFF(
-                                product_categorization_product_line NOT IN (
-                                    'Sell',
-                                    'BrightGauge',
-                                    'ITBoost',
-                                    'Help Desk'
-                                )
-                                AND NOT (
-                                    product_categorization_product_line = 'Manage'
-                                    AND product_categorization_product_package = 'Manage'
-                                    AND product_categorization_product_plan IN (
-                                        '-',
-                                        'Standard',
-                                        'Premium',
-                                        'Basic'
-                                    )
-                                )
-                                AND NOT (
-                                    product_categorization_product_line IN (
-                                        'Automate',
-                                        'Command'
-                                    )
-                                    AND product_categorization_product_package IN (
-                                        'Automate',
-                                        'Desktops',
-                                        'Networks',
-                                        'Servers'
-                                    )
-                                )
-                                AND NOT (
-                                    product_categorization_product_group = 'Network & Endpoint Security'
-                                    AND product_categorization_license_service_type = 'SaaS'
-                                ),
-                                arr,
-                                0
-                            )
-                        ) AS other_arr,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'Manage'
-                                AND product_categorization_product_package = 'Manage'
-                                AND product_categorization_product_plan IN (
-                                    '-',
-                                    'Standard',
-                                    'Premium',
-                                    'Basic'
-                                )
-                                AND product_categorization_license_service_type = 'SaaS',
-                                1,
-                                0
-                            )
-                        ) AS psa_cloud,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'Sell'
-                                AND product_categorization_license_service_type = 'SaaS',
-                                1,
-                                0
-                            )
-                        ) AS sell_cloud,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'BrightGauge'
-                                AND product_categorization_license_service_type = 'SaaS',
-                                1,
-                                0
-                            )
-                        ) AS brightgauge_cloud,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'ITBoost'
-                                AND product_categorization_license_service_type = 'SaaS',
-                                1,
-                                0
-                            )
-                        ) AS itboost_cloud,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line IN (
-                                    'Automate',
-                                    'Command'
-                                )
-                                AND product_categorization_product_package IN (
-                                    'Automate',
-                                    'Desktops',
-                                    'Networks',
-                                    'Servers'
-                                )
-                                AND product_categorization_license_service_type = 'SaaS',
-                                1,
-                                0
-                            )
-                        ) AS rmm_cloud,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'Help Desk',
-                                1,
-                                0
-                            )
-                        ) AS help_desk_cloud,
-                        MAX(
-                            IFF(
-                                product_categorization_product_group = 'Network & Endpoint Security'
-                                AND product_categorization_license_service_type = 'SaaS'
-                                AND product_categorization_license_service_type = 'SaaS',
-                                1,
-                                0
-                            )
-                        ) AS security_cloud,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line NOT IN (
-                                    'Sell',
-                                    'BrightGauge',
-                                    'ITBoost',
-                                    'Help Desk'
-                                )
-                                AND NOT (
-                                    product_categorization_product_line = 'Manage'
-                                    AND product_categorization_product_package = 'Manage'
-                                    AND product_categorization_product_plan IN (
-                                        '-',
-                                        'Standard',
-                                        'Premium',
-                                        'Basic'
-                                    )
-                                )
-                                AND NOT (
-                                    product_categorization_product_line IN (
-                                        'Automate',
-                                        'Command'
-                                    )
-                                    AND product_categorization_product_package IN (
-                                        'Automate',
-                                        'Desktops',
-                                        'Networks',
-                                        'Servers'
-                                    )
-                                )
-                                AND NOT (
-                                    product_categorization_product_group = 'Network & Endpoint Security'
-                                    AND product_categorization_license_service_type = 'SaaS'
-                                )
-                                AND product_categorization_license_service_type = 'SaaS',
-                                1,
-                                0
-                            )
-                        ) AS other_cloud,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'Manage'
-                                AND product_categorization_product_package = 'Manage'
-                                AND product_categorization_product_plan IN (
-                                    '-',
-                                    'Standard',
-                                    'Premium',
-                                    'Basic'
-                                )
-                                AND product_categorization_license_service_type IN (
-                                    'Perpetual',
-                                    'Maintenance'
-                                ),
-                                1,
-                                0
-                            )
-                        ) AS psa_legacy_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'Sell'
-                                AND product_categorization_license_service_type IN (
-                                    'Perpetual',
-                                    'Maintenance'
-                                ),
-                                arr,
-                                0
-                            )
-                        ) AS sell_legacy_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'BrightGauge'
-                                AND product_categorization_license_service_type IN (
-                                    'Perpetual',
-                                    'Maintenance'
-                                ),
-                                arr,
-                                0
-                            )
-                        ) AS brightgauge_legacy_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'ITBoost'
-                                AND product_categorization_license_service_type IN (
-                                    'Perpetual',
-                                    'Maintenance'
-                                ),
-                                arr,
-                                0
-                            )
-                        ) AS itboost_legacy_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line IN (
-                                    'Automate',
-                                    'Command'
-                                )
-                                AND product_categorization_product_package IN (
-                                    'Automate',
-                                    'Desktops',
-                                    'Networks',
-                                    'Servers'
-                                )
-                                AND product_categorization_license_service_type IN (
-                                    'Perpetual',
-                                    'Maintenance'
-                                ),
-                                1,
-                                0
-                            )
-                        ) AS rmm_legacy_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'Help Desk',
-                                1,
-                                0
-                            )
-                        ) AS help_desk_legacy_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_group = 'Network & Endpoint Security'
-                                AND product_categorization_license_service_type IN (
-                                    'Perpetual',
-                                    'Maintenance'
-                                ),
-                                1,
-                                0
-                            )
-                        ) AS security_legacy_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line NOT IN (
-                                    'Sell',
-                                    'BrightGauge',
-                                    'ITBoost',
-                                    'Help Desk'
-                                )
-                                AND NOT (
-                                    product_categorization_product_line = 'Manage'
-                                    AND product_categorization_product_package = 'Manage'
-                                    AND product_categorization_product_plan IN (
-                                        '-',
-                                        'Standard',
-                                        'Premium',
-                                        'Basic'
-                                    )
-                                )
-                                AND NOT (
-                                    product_categorization_product_line IN (
-                                        'Automate',
-                                        'Command'
-                                    )
-                                    AND product_categorization_product_package IN (
-                                        'Automate',
-                                        'Desktops',
-                                        'Networks',
-                                        'Servers'
-                                    )
-                                )
-                                AND NOT (
-                                    product_categorization_product_group = 'Network & Endpoint Security'
-                                    AND product_categorization_license_service_type = 'SaaS'
-                                )
-                                AND product_categorization_license_service_type IN (
-                                    'Perpetual',
-                                    'Maintenance'
-                                ),
-                                1,
-                                0
-                            )
-                        ) AS other_legacy_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'Manage'
-                                AND product_categorization_product_package = 'Manage'
-                                AND product_categorization_product_plan IN (
-                                    '-',
-                                    'Standard',
-                                    'Premium',
-                                    'Basic'
-                                )
-                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                1,
-                                0
-                            )
-                        ) AS psa_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'Sell'
-                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                arr,
-                                0
-                            )
-                        ) AS sell_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'BrightGauge'
-                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                arr,
-                                0
-                            )
-                        ) AS brightgauge_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'ITBoost'
-                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                arr,
-                                0
-                            )
-                        ) AS itboost_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line IN (
-                                    'Automate',
-                                    'Command'
-                                )
-                                AND product_categorization_product_package IN (
-                                    'Automate',
-                                    'Desktops',
-                                    'Networks',
-                                    'Servers'
-                                )
-                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                1,
-                                0
-                            )
-                        ) AS rmm_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line = 'Help Desk',
-                                1,
-                                0
-                            )
-                        ) AS help_desk_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_group = 'Network & Endpoint Security'
-                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                1,
-                                0
-                            )
-                        ) AS security_on_prem,
-                        MAX(
-                            IFF(
-                                product_categorization_product_line NOT IN (
-                                    'Sell',
-                                    'BrightGauge',
-                                    'ITBoost',
-                                    'Help Desk'
-                                )
-                                AND NOT (
-                                    product_categorization_product_line = 'Manage'
-                                    AND product_categorization_product_package = 'Manage'
-                                    AND product_categorization_product_plan IN (
-                                        '-',
-                                        'Standard',
-                                        'Premium',
-                                        'Basic'
-                                    )
-                                )
-                                AND NOT (
-                                    product_categorization_product_line IN (
-                                        'Automate',
-                                        'Command'
-                                    )
-                                    AND product_categorization_product_package IN (
-                                        'Automate',
-                                        'Desktops',
-                                        'Networks',
-                                        'Servers'
-                                    )
-                                )
-                                AND NOT (
-                                    product_categorization_product_group = 'Network & Endpoint Security'
-                                    AND product_categorization_license_service_type = 'SaaS'
-                                )
-                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                1,
-                                0
-                            )
-                        ) AS other_on_prem,
-                        SUM(
-                            IFF(
-                                product_categorization_product_line LIKE '%Solution Partners%'
-                                AND LOWER(product_categorization_product_package) <> 'webroot',
-                                mrr,
-                                0
-                            )
-                        ) AS third_party_mrr,
-                        SUM(
-                            IFF(LOWER(product_categorization_product_package) = 'webroot'
-                            AND item_id <> '3P-SAAS3002315EPPRMM', mrr, 0)) AS webroot_mrr,
-                            SUM(
-                                IFF(LOWER(product_categorization_product_package) = 'webroot'
-                                AND item_id <> '3P-SAAS3002315EPPRMM', units, 0)) AS webroot_units,
-                                SUM(
-                                    IFF(LOWER(product_categorization_product_package) = 'webroot'
-                                    AND item_id = '3P-SAAS3002315EPPRMM', mrr, 0)) AS webroot_overage_mrr,
-                                    SUM(
-                                        IFF(LOWER(product_categorization_product_package) = 'webroot'
-                                        AND item_id = '3P-SAAS3002315EPPRMM', units, 0)) AS webroot_overage_units,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line = 'Manage'
-                                                AND product_categorization_product_package = 'Manage'
-                                                AND product_categorization_product_plan IN (
-                                                    '-',
-                                                    'Standard',
-                                                    'Premium',
-                                                    'Basic'
-                                                )
-                                                AND product_categorization_license_service_type = 'SaaS',
-                                                arr,
-                                                0
-                                            )
-                                        ) AS psa_cloud_arr,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line = 'Manage'
-                                                AND product_categorization_product_package = 'Manage'
-                                                AND product_categorization_product_plan IN (
-                                                    '-',
-                                                    'Standard',
-                                                    'Premium',
-                                                    'Basic'
-                                                )
-                                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                                arr,
-                                                0
-                                            )
-                                        ) AS psa_on_prem_arr,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line = 'Manage'
-                                                AND product_categorization_product_package = 'Manage'
-                                                AND product_categorization_product_plan IN (
-                                                    '-',
-                                                    'Standard',
-                                                    'Premium',
-                                                    'Basic'
-                                                )
-                                                AND product_categorization_license_service_type IN (
-                                                    'Perpetual',
-                                                    'Maintenance'
-                                                ),
-                                                arr,
-                                                0
-                                            )
-                                        ) AS psa_legacy_on_prem_arr,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line IN (
-                                                    'Automate',
-                                                    'Command'
-                                                )
-                                                AND product_categorization_product_package IN (
-                                                    'Automate',
-                                                    'Desktops',
-                                                    'Networks',
-                                                    'Servers'
-                                                )
-                                                AND product_categorization_license_service_type = 'SaaS',
-                                                arr,
-                                                0
-                                            )
-                                        ) AS automate_cloud_arr,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line IN (
-                                                    'Automate',
-                                                    'Command'
-                                                )
-                                                AND product_categorization_product_package IN (
-                                                    'Automate',
-                                                    'Desktops',
-                                                    'Networks',
-                                                    'Servers'
-                                                )
-                                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                                arr,
-                                                0
-                                            )
-                                        ) AS automate_on_prem_arr,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line IN (
-                                                    'Automate',
-                                                    'Command'
-                                                )
-                                                AND product_categorization_product_package IN (
-                                                    'Automate',
-                                                    'Desktops',
-                                                    'Networks',
-                                                    'Servers'
-                                                )
-                                                AND product_categorization_license_service_type IN (
-                                                    'Perpetual',
-                                                    'Maintenance'
-                                                ),
-                                                arr,
-                                                0
-                                            )
-                                        ) AS automate_legacy_on_prem_arr,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line = 'Control'
-                                                AND product_categorization_license_service_type = 'SaaS',
-                                                arr,
-                                                0
-                                            )
-                                        ) AS control_cloud_arr,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line = 'Control'
-                                                AND product_categorization_license_service_type IN (
-                                                    'Perpetual',
-                                                    'Maintenance'
-                                                ),
-                                                arr,
-                                                0
-                                            )
-                                        ) AS control_on_prem_arr,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line = 'Manage'
-                                                AND product_categorization_product_package = 'Manage'
-                                                AND product_categorization_product_plan IN (
-                                                    '-',
-                                                    'Standard',
-                                                    'Premium',
-                                                    'Basic'
-                                                )
-                                                AND product_categorization_license_service_type = 'SaaS',
-                                                units,
-                                                0
-                                            )
-                                        ) AS psa_cloud_units,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line = 'Manage'
-                                                AND product_categorization_product_package = 'Manage'
-                                                AND product_categorization_product_plan IN (
-                                                    '-',
-                                                    'Standard',
-                                                    'Premium',
-                                                    'Basic'
-                                                )
-                                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                                units,
-                                                0
-                                            )
-                                        ) AS psa_on_prem_units,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line = 'Manage'
-                                                AND product_categorization_product_package = 'Manage'
-                                                AND product_categorization_product_plan IN (
-                                                    '-',
-                                                    'Standard',
-                                                    'Premium',
-                                                    'Basic'
-                                                )
-                                                AND product_categorization_license_service_type IN (
-                                                    'Perpetual',
-                                                    'Maintenance'
-                                                ),
-                                                units,
-                                                0
-                                            )
-                                        ) AS psa_legacy_on_prem_units,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line IN (
-                                                    'Automate',
-                                                    'Command'
-                                                )
-                                                AND product_categorization_product_package IN (
-                                                    'Automate',
-                                                    'Desktops',
-                                                    'Networks',
-                                                    'Servers'
-                                                )
-                                                AND product_categorization_license_service_type = 'SaaS',
-                                                units,
-                                                0
-                                            )
-                                        ) AS automate_cloud_units,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line IN (
-                                                    'Automate',
-                                                    'Command'
-                                                )
-                                                AND product_categorization_product_package IN (
-                                                    'Automate',
-                                                    'Desktops',
-                                                    'Networks',
-                                                    'Servers'
-                                                )
-                                                AND product_categorization_license_service_type IN ('On Premise (Subscription)'),
-                                                units,
-                                                0
-                                            )
-                                        ) AS automate_on_prem_units,
-                                        SUM(
-                                            IFF(
-                                                product_categorization_product_line IN (
-                                                    'Automate',
-                                                    'Command'
-                                                )
-                                                AND product_categorization_product_package IN (
-                                                    'Automate',
-                                                    'Desktops',
-                                                    'Networks',
-                                                    'Servers'
-                                                )
-                                                AND product_categorization_license_service_type IN (
-                                                    'Perpetual',
-                                                    'Maintenance'
-                                                ),
-                                                units,
-                                                0
-                                            )
-                                        ) AS automate_legacy_on_prem_units
-                                        FROM
-                                            analytics.dbo.growth__obt
-                                        WHERE
-                                            reporting_date = '2022-01-01' -- DATEADD(MONTH, -1, DATE_TRUNC(MONTH, CURRENT_DATE)) -- Filter TO refresh DATA yyyy - mm - dd
-                                            AND metric_object = 'applied_billings'
-                                        GROUP BY
-                                            1,
-                                            2
-                                        HAVING
-                                            SUM(billings) > 0
-                                    ),
-                                    customer_2021_stats AS (
-                                        SELECT
-                                            company_id,
-                                            ROUND(SUM(billings)) AS dec_2021_billings,
-                                            ROUND(SUM(arr)) AS dec_2021_arr
-                                        FROM
-                                            analytics.dbo.growth__obt
-                                        WHERE
-                                            reporting_date = '2021-12-01'
-                                            AND metric_object = 'applied_billings'
-                                        GROUP BY
-                                            1
-                                        HAVING
-                                            SUM(billings) > 0
-                                    ),
-                                    customer_2020_stats AS (
-                                        SELECT
-                                            company_id,
-                                            ROUND(SUM(billings)) AS dec_2020_billings,
-                                            ROUND(SUM(arr)) AS dec_2020_arr
-                                        FROM
-                                            analytics.dbo.growth__obt
-                                        WHERE
-                                            reporting_date = '2020-12-01'
-                                            AND metric_object = 'applied_billings'
-                                        GROUP BY
-                                            1
-                                        HAVING
-                                            SUM(billings) > 0
-                                    ),
-                                    customer_2019_stats AS (
-                                        SELECT
-                                            company_id,
-                                            ROUND(SUM(billings)) AS dec_2019_billings,
-                                            ROUND(SUM(arr)) AS dec_2019_arr
-                                        FROM
-                                            analytics.dbo.growth__obt
-                                        WHERE
-                                            reporting_date = '2019-12-01'
-                                            AND metric_object = 'applied_billings'
-                                        GROUP BY
-                                            1
-                                        HAVING
-                                            SUM(billings) > 0
-                                    ),
-                                    contract AS (
-                                        WITH fl AS (
-                                            SELECT
-                                                company_id,
-                                                contract_number,
-                                                product_categorization_arr_reported_product,
-                                                MIN(start_date) AS start_date,
-                                                MAX(end_date) AS end_date
-                                            FROM
-                                                analytics.dbo.growth__obt
-                                            WHERE
-                                                metric_object = 'renewals'
-                                            GROUP BY
-                                                1,
-                                                2,
-                                                3
-                                        ),
-                                        sl AS (
-                                            SELECT
-                                                *,
-                                                IFF(
-                                                    end_date < '2022-01-01' :: DATE,
-                                                    '2099-01-01' :: DATE,
-                                                    end_date
-                                                ) AS dayfilter,
-                                                MIN(dayfilter) over (
-                                                    PARTITION BY company_id
-                                                    ORDER BY
-                                                        company_id
-                                                ) AS nearestdate,
-                                                IFF(
-                                                    nearestdate = end_date,
-                                                    1,
-                                                    0
-                                                ) AS daysfilterflag
-                                            FROM
-                                                fl
-                                        )
-                                        SELECT
-                                            company_id,
-                                            end_date AS earliest_date,
-                                            LISTAGG(
-                                                contract_number,
-                                                ','
-                                            ) AS contract_number,
-                                            LISTAGG(
-                                                product_categorization_arr_reported_product,
-                                                ','
-                                            ) AS products
-                                        FROM
-                                            sl
-                                        WHERE
-                                            daysfilterflag = 1
-                                        GROUP BY
-                                            1,
-                                            2
-                                    ),-- customer_2018_stats AS (
-                                        --
-                                        SELECT
-                                            company_name_with_id,-- ROUND(SUM(billings)) AS dec_2018_billings,-- ROUND(SUM(arr)) AS dec_2018_arr --
-                                        FROM
-                                            analytics.dbt_baw.growth__obt --
-                                        WHERE
-                                            reporting_date = '2018-12-01' --
-                                            AND metric_object = 'applied_billings' --
-                                        GROUP BY
-                                            1 --
-                                        HAVING
-                                            SUM(billings) > 0 --
-                                    ),
-                                    customer_healthscores AS (
-                                        SELECT
-                                            ship_to AS company_id,
-                                            healthscore,
-                                            healthscore_alpha
-                                        FROM
-                                            analytics.dbo_transformation.partner_success_intermediate__healthscores qualify ROW_NUMBER() over (
-                                                PARTITION BY ship_to
-                                                ORDER BY
-                                                    apdate DESC
-                                            ) = 1
-                                    ),
-                                    customer_touch_tier AS (
-                                        SELECT
-                                            applied_date,
-                                            ship_to,
-                                            COUNT(
-                                                DISTINCT touch_tier
-                                            ) AS tt_count,
-                                            LISTAGG(
-                                                DISTINCT touch_tier,
-                                                ' | '
-                                            ) within GROUP (
-                                                ORDER BY
-                                                    touch_tier
-                                            ) AS tt_classes,
-                                            MIN(touch_tier) AS tt_min,
-                                            MAX(touch_tier) AS tt_max,
-                                            MIN(touch_tier) AS touch_tier
-                                        FROM
-                                            analytics.dbo_transformation.partner_success_intermediate__tech_touch_roster
-                                        GROUP BY
-                                            1,
-                                            2
-                                    ),
-                                    customer_contract_type AS (
-                                        SELECT
-                                            applied_date,
-                                            ship_to,
-                                            LISTAGG(
-                                                DISTINCT COALESCE(
-                                                    quote_line_subscription_type,
-                                                    'Non-Bedrock M2M'
-                                                ),
-                                                ' | '
-                                            ) within GROUP (
-                                                ORDER BY
-                                                    COALESCE(
-                                                        quote_line_subscription_type,
-                                                        'Non-Bedrock M2M'
-                                                    )
-                                            ) AS contract_type
-                                        FROM
-                                            analytics.dbo.core__rpt_billings
-                                        GROUP BY
-                                            1,
-                                            2
-                                    ),
-                                    customer_psa_package AS (
-                                        SELECT
-                                            company_id,-- company_name_with_id,
-                                            LISTAGG(
-                                                DISTINCT IFF(
-                                                    product_categorization_product_package = 'Manage'
-                                                    AND product_categorization_product_plan IN (
-                                                        'Basic',
-                                                        'Standard',
-                                                        'Premium'
-                                                    ),
-                                                    product_categorization_product_plan,
-                                                    'Legacy'
-                                                ),
-                                                ' | '
-                                            ) within GROUP (
-                                                ORDER BY
-                                                    IFF(
-                                                        product_categorization_product_package = 'Manage'
-                                                        AND product_categorization_product_plan IN (
-                                                            'Basic',
-                                                            'Standard',
-                                                            'Premium'
-                                                        ),
-                                                        product_categorization_product_plan,
-                                                        'Legacy'
-                                                    )
-                                            ) AS psa_package
-                                        FROM
-                                            analytics.dbo.growth__obt
-                                        WHERE
-                                            reporting_date = '2022-01-01' -- DATEADD(MONTH, -1, DATE_TRUNC(MONTH, CURRENT_DATE)) -- Filter TO refresh DATA yyyy - mm - dd
-                                            AND metric_object = 'applied_billings'
-                                            AND product_categorization_product_line = 'Manage'
-                                            AND billings > 0
-                                        GROUP BY
-                                            1
-                                    ),
-                                    customer_tenure AS (
-                                        SELECT
-                                            company_id,
-                                            MIN(corporate_billing_start_date) AS corporate_start_date,
-                                            MAX(corporate_billing_reporting_period) AS corporate_tenure,
-                                            MAX(
-                                                IFF(
-                                                    product_categorization_product_group = 'Client & Process Mgmt',
-                                                    product_group_billing_start_date,
-                                                    NULL
-                                                )
-                                            ) AS psa_start_date,
-                                            MAX(
-                                                IFF(
-                                                    product_categorization_product_group = 'Client & Process Mgmt',
-                                                    product_group_billing_reporting_period,
-                                                    NULL
-                                                )
-                                            ) AS psa_tenure,
-                                            MAX(
-                                                IFF(
-                                                    product_categorization_product_group = 'Remote Monitoring & Mgmt',
-                                                    product_group_billing_start_date,
-                                                    NULL
-                                                )
-                                            ) AS rmm_start_date,
-                                            MAX(
-                                                IFF(
-                                                    product_categorization_product_group = 'Remote Monitoring & Mgmt',
-                                                    product_group_billing_reporting_period,
-                                                    NULL
-                                                )
-                                            ) AS rmm_tenure,
-                                            MAX(
-                                                IFF(
-                                                    product_categorization_product_portfolio = 'Security Mgmt',
-                                                    product_portfolio_billing_start_date,
-                                                    NULL
-                                                )
-                                            ) AS security_start_date,
-                                            MAX(
-                                                IFF(
-                                                    product_categorization_product_portfolio = 'Security Mgmt',
-                                                    product_portfolio_billing_reporting_period,
-                                                    NULL
-                                                )
-                                            ) AS security_tenure
-                                        FROM
-                                            analytics.dbo.growth__obt
-                                        GROUP BY
-                                            1
-                                    )
-                                    SELECT
-                                        -- customer id cr.company_id,
-                                        cr.company_name,
-                                        CONCAT(
-                                            cr.company_id,
-                                            cr.company_name
-                                        ) AS company_name_with_id,-- CURRENT arr cr.current_arr,- - 2020 arr (
-                                            if available
-                                        ) c21.dec_2021_billings,
-                                        c21.dec_2021_arr,- - 2019 arr (
-                                            if available
-                                        ) c20.dec_2020_billings,
-                                        c20.dec_2020_arr,- - 2018 arr (
-                                            if available
-                                        ) c19.dec_2019_billings,
-                                        c19.dec_2019_arr,-- customer VALUE -- touch tier COALESCE(
-                                            ctt.touch_tier,
-                                            'Tech Touch (due to non-qualifying MRR)'
-                                        ) AS touch_tier,-- contract TYPE cct.contract_type,-- it nation MEMBER (
-                                            if available
-                                        ) -- cr.itnation_active_partner,-- NOT present IN raw DATA,
-                                        hence commented cr.itnation_peer_group_active_partner,-- qualitative churn scoring
-                                    FROM
-                                        salesforce (
-                                            if available
-                                        ) chs.healthscore,
-                                        chs.healthscore_alpha,-- overall tenure ct.corporate_start_date,
-                                        ct.corporate_tenure,-- psa tenure ct.psa_start_date,
-                                        ct.psa_tenure,
-                                        cpp.psa_package,-- rmm tenure ct.rmm_start_date,
-                                        ct.rmm_tenure,-- security tenure ct.security_start_date,
-                                        ct.security_tenure,-- manage_active_partner cr.manage_active_partner,-- control_active_partner cr.control_active_partner,-- automate_active_partner cr.automate_active_partner,-- sell_active_partner cr.sell_active_partner,-- fortify_active_partner cr.fortify_active_partner,-- command_active_partner cr.command_active_partner,-- brightgauge_active_partner cr.brightgauge_active_partner,-- recover_active_partner cr.recover_active_partner,-- help desk_active_partner cr.help_desk_active_partner,-- security_active_partner cr.security_active_partner,-- itboost_active_partner cr.itboost_active_partner,-- noc_active_partner -- soc_active_partner -- psa seats served cr.psa_units,-- rmm endpoints served cr.rmm_units,
-                                        cr.command_desktop_units,
-                                        cr.command_network_units,
-                                        cr.command_server_units,
-                                        cr.help_desk_units,-- security endpoints served cr.security_units,
-                                        ROUND(
-                                            cr.psa_arr
-                                        ) AS psa_arr,
-                                        ROUND(
-                                            cr.sell_arr
-                                        ) AS sell_arr,
-                                        ROUND(
-                                            cr.brightgauge_arr
-                                        ) AS brightgauge_arr,
-                                        ROUND(
-                                            cr.itboost_arr
-                                        ) AS itboost_arr,
-                                        ROUND(
-                                            cr.rmm_arr
-                                        ) AS rmm_arr,
-                                        ROUND(
-                                            cr.rmm_additional_arr
-                                        ) AS rmm_additional_arr,
-                                        ROUND(
-                                            cr.help_desk_arr
-                                        ) AS help_desk_arr,
-                                        ROUND(
-                                            cr.security_arr
-                                        ) AS security_arr,
-                                        ROUND(
-                                            cr.other_arr
-                                        ) AS other_arr,
-                                        cr.psa_cloud,
-                                        cr.psa_legacy_on_prem,
-                                        cr.psa_on_prem,
-                                        cr.sell_cloud,
-                                        cr.sell_legacy_on_prem,
-                                        cr.sell_on_prem,
-                                        cr.brightgauge_cloud,
-                                        cr.brightgauge_legacy_on_prem,
-                                        cr.brightgauge_on_prem,
-                                        cr.itboost_cloud,
-                                        cr.itboost_legacy_on_prem,
-                                        cr.itboost_on_prem,
-                                        cr.rmm_cloud,
-                                        cr.rmm_legacy_on_prem,
-                                        cr.rmm_on_prem,
-                                        cr.help_desk_cloud,
-                                        cr.help_desk_legacy_on_prem,
-                                        cr.help_desk_on_prem,
-                                        cr.security_cloud,
-                                        cr.security_legacy_on_prem,
-                                        cr.security_on_prem,
-                                        cr.other_cloud,
-                                        cr.other_legacy_on_prem,
-                                        cr.other_on_prem,
-                                        cr.third_party_mrr,
-                                        cr.webroot_mrr,
-                                        cr.webroot_units,
-                                        cr.webroot_overage_mrr,
-                                        cr.webroot_overage_units,
-                                        psa_cloud_arr,
-                                        psa_on_prem_arr,
-                                        psa_legacy_on_prem_arr,
-                                        automate_cloud_arr,
-                                        automate_on_prem_arr,
-                                        automate_legacy_on_prem_arr,-- control_cloud_arr,-- control_on_prem_arr,
-                                        psa_cloud_units,
-                                        psa_on_prem_units,
-                                        psa_legacy_on_prem_units,
-                                        automate_cloud_units,
-                                        automate_on_prem_units,
-                                        automate_legacy_on_prem_units,
-                                        C.contract_number,
-                                        C.earliest_date,
-                                        C.products
-                                    FROM
-                                        customer_roster cr
-                                        LEFT JOIN customer_2021_stats c21
-                                        ON c21.company_id = cr.company_id
-                                        LEFT JOIN customer_2020_stats c20
-                                        ON c20.company_id = cr.company_id
-                                        LEFT JOIN customer_2019_stats c19
-                                        ON c19.company_id = cr.company_id
-                                        LEFT JOIN contract C
-                                        ON C.company_id = cr.company_id
-                                        LEFT JOIN customer_healthscores chs
-                                        ON chs.company_id = cr.company_id
-                                        LEFT JOIN customer_touch_tier ctt
-                                        ON ctt.applied_date = cr.reporting_date
-                                        AND ctt.ship_to = cr.company_id
-                                        LEFT JOIN customer_contract_type cct
-                                        ON cct.applied_date = cr.reporting_date
-                                        AND cct.ship_to = cr.company_id
-                                        LEFT JOIN customer_psa_package cpp
-                                        ON cpp.company_id = cr.company_id
-                                        LEFT JOIN customer_tenure ct
-                                        ON ct.company_id = cr.company_id
+                   UNITS, 0))                                                            AS PSA_UNITS,
+
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers'), UNITS,
+                   0))                                                                   AS RMM_UNITS,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Desktops'), UNITS,
+                   0))                                                                   AS COMMAND_DESKTOP_UNITS,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Networks'), UNITS,
+                   0))                                                                   AS COMMAND_NETWORK_UNITS,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Servers'), UNITS,
+                   0))                                                                   AS COMMAND_SERVER_UNITS,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Help Desk'), UNITS, 0))      AS HELP_DESK_UNITS,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Network & Endpoint Security' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', UNITS,
+                   0))                                                                   AS SECURITY_UNITS,
+           ROUND(SUM(BILLINGS))                                                          AS CURRENT_BILLINGS,
+           ROUND(SUM(ARR))                                                               AS CURRENT_ARR,
+
+           -- as part of change on 04/04 based on inputs from Pricing and packaging team
+           SUM(IFF(ITEM_ID in (
+                'MNLICONPREMBCLDCNNC3',
+                'MNG-LIC-SAASCLDCNNCT',
+                'LEGACYLBCLDCNNCTM00',
+                'LEGACYMCLDRPRT2CLDR',
+                'MNLICSAASMODBDXMEGAA',
+                'MNLICONPREMBMNPRMSUB',
+                'CWH-USC-M00-ABMNGEPREM',
+                'CWH-USD-M00-ABMNGEPREM',
+                'CWH-UKD-M00-ABMNGEPREM',
+                'MNLICONPREMBMNSTDSUB',
+                'MNLICONPREMBCWUSERNM',
+                'LEGACYSKUCWUSERNM',
+                'MNLICONPREMBTESTENVI',
+                'MNG-LIC-SAASCLDDTACC',
+                'MNLICONPREMBCWPSAPRI',
+                'MNG-LIC-SAASMNGBASAS',
+                'MNG-LIC-SAASMNGCHGMT',
+                'MNG-LIC-SAASITTBASIC',
+                'MNH-UKM-A00-LAITTBASAS',
+                'MNH-USM-A00-LAITTBASAS',
+                'MNLICONPREMBITTBASIC',
+                'MNH-USM-A00-LBITTBASUB',
+                'MNG-LIC-SAASITTSTAND',
+                'MNLICONPREMBITTSTDSB',
+                'MNG-LIC-SAASCWUSERMO',
+                'PSA - Monthly Mobile',
+                'MNLICONPREMBCWUSERMO',
+                'MNLICSAASMODBDXBIGBX',
+                'MNLICONPREMBEMAILCON',
+                'MNLICONPREMBEMAILCON',
+                'MNLICSAASMODEMAILC02',
+                'MNLICONPREMBMSPCONCT',
+                'MNLICSAASMODMSPCONCT',
+                'LEGACYSKUPROINVRY',
+                'MNLICONPREMBPROINVRY',
+                'MNLICSAASMODPROINVRY',
+                'MNLICONPREMBPROCRMNT',
+                'MNLICSAASMODPROCRMNT',
+                'MNG-LIC-SAASCWUSRFEE',
+                'MNG-LIC-SAASMNPRMSAS',
+                'MNLICONPREMBSANDBOXB',
+                'MNG-LIC-SAASSSANDBOX',
+                'MNLICONPREMBTESTOMPM',
+                'MNLICONPREMBSANDBOXS',
+                'MNG-LIC-SAASMNGSTDSS',
+                'MNLICONPREMBMNSVRFEE',
+                'AULICONPREMMNSVRFEE',
+                'MNLICONPREMBCWUSRCRM',
+                'MNG-LIC-SAASCWUSRCRM',
+                'MNLICONPREMBCWUSERIN',
+                'MNG-LIC-SAASCWUSERIN',
+                'MNLICONPREMBCWUSERPR',
+                'MNG-LIC-SAASCWUSERNM',
+                'MNG-LIC-SAASCWUSERTO',
+                'MNLICONPREMBCWUSRSCH',
+                'MNG-LIC-SAASCWUSRSCH',
+                'MNG-LIC-SAASCLDCHNAM',
+                'LEGACYPSACloudChnnel',
+                'LEGACYSTANDUSERSTND',
+                'MNLICONPREMBSASPLNSV',
+                'LEGACYPSASaaSChannel',
+                'LEGACYPSASAASPLANSEV',
+                'MNLICONPREMPCWUSERIN',
+                'MNSASMAININTNAMEUSER',
+                'MNSASMAINADDNAMEUSER',
+                'LEGACYPSA-ASSURANCEA',
+                'LEGACYSKUCLDCHANN',
+                'MNMAINPRPADDINCLUSER',
+                'LEGACYSKUAIINUSRSTD',
+                'MNLICONPREMPCWUSERNM',
+                'LEGACYPSA-ASSURANCEM',
+                'LEGACYMACCONBASQ-Q00',
+                'LEGACYLACWUSERINM01',
+                'MNMAINPRPINTINCLUSER',
+                'LEGACYPSA-ASSURANCEQ',
+                'LEGACYONPREMMONTHLY'),
+                   ARR, 0))                                                            AS PSA_ARR,
+
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Sell', ARR, 0))                AS SELL_ARR,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'BrightGauge', ARR, 0))         AS BRIGHTGAUGE_ARR,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'ITBoost', ARR, 0))             AS ITBOOST_ARR,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers'), ARR,
+                   0))                                                                   AS RMM_ARR,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Third Party Patching'), ARR,
+                   0))                                                                   AS RMM_ADDITIONAL_ARR,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk', ARR, 0))           AS HELP_DESK_ARR,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Network & Endpoint Security' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS' AND
+                   lower(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE) <> 'webroot', ARR,
+                   0))                                                                   AS SECURITY_ARR,
+           SUM(IFF(
+                           PRODUCT_CATEGORIZATION_PRODUCT_LINE NOT IN ('Sell', 'BrightGauge', 'ITBoost', 'Help Desk')
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic'))
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN
+                                ('Automate', 'Desktops', 'Networks', 'Servers'))
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Network & Endpoint Security' AND
+                                PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS'),
+                           ARR,
+                           0)
+               )                                                                         AS OTHER_ARR,
+
+
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS',
+                   1, 0))                                                                AS PSA_CLOUD,
+
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Sell' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', 1, 0))          AS SELL_CLOUD,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'BrightGauge' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', 1,
+                   0))                                                                   AS BRIGHTGAUGE_CLOUD,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'ITBoost' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', 1,
+                   0))                                                                   AS ITBOOST_CLOUD,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', 1,
+                   0))                                                                   AS RMM_CLOUD,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk', 1, 0))             AS HELP_DESK_CLOUD,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Network & Endpoint Security' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS'
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', 1,
+                   0))                                                                   AS SECURITY_CLOUD,
+           MAX(IFF(
+                           PRODUCT_CATEGORIZATION_PRODUCT_LINE NOT IN ('Sell', 'BrightGauge', 'ITBoost', 'Help Desk')
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic'))
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN
+                                ('Automate', 'Desktops', 'Networks', 'Servers'))
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Network & Endpoint Security' AND
+                                PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS',
+                           1,
+                           0)
+               )                                                                         AS OTHER_CLOUD,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'),
+                   1,
+                   0))                                                                   AS PSA_LEGACY_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Sell' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), ARR,
+                   0))                                                                   AS SELL_LEGACY_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'BrightGauge' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), ARR,
+                   0))                                                                   AS BRIGHTGAUGE_LEGACY_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'ITBoost' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), ARR,
+                   0))                                                                   AS ITBOOST_LEGACY_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), 1,
+                   0))                                                                   AS RMM_LEGACY_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk', 1, 0))             AS HELP_DESK_LEGACY_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Network & Endpoint Security' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), 1,
+                   0))                                                                   AS SECURITY_LEGACY_ON_PREM,
+           MAX(IFF(
+                           PRODUCT_CATEGORIZATION_PRODUCT_LINE NOT IN ('Sell', 'BrightGauge', 'ITBoost', 'Help Desk')
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic'))
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN
+                                ('Automate', 'Desktops', 'Networks', 'Servers'))
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Network & Endpoint Security' AND
+                                PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'),
+                           1,
+                           0)
+               )                                                                         AS OTHER_LEGACY_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'),
+                   1,
+                   0))                                                                   AS PSA_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Sell' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'), ARR,
+                   0))                                                                   AS SELL_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'BrightGauge' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'), ARR,
+                   0))                                                                   AS BRIGHTGAUGE_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'ITBoost' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'), ARR,
+                   0))                                                                   AS ITBOOST_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'), 1,
+                   0))                                                                   AS RMM_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk', 1, 0))             AS HELP_DESK_ON_PREM,
+           MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Network & Endpoint Security' AND
+                   PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'), 1,
+                   0))                                                                   AS SECURITY_ON_PREM,
+           MAX(IFF(
+                           PRODUCT_CATEGORIZATION_PRODUCT_LINE NOT IN ('Sell', 'BrightGauge', 'ITBoost', 'Help Desk')
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic'))
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN
+                                ('Automate', 'Desktops', 'Networks', 'Servers'))
+                       AND NOT (PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Network & Endpoint Security' AND
+                                PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'),
+                           1,
+                           0)
+               )                                                                         AS OTHER_ON_PREM,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE LIKE '%Solution Partners%'
+                       AND lower(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE) <> 'webroot', MRR,
+                   0))                                                                   AS THIRD_PARTY_MRR,
+           SUM(IFF(lower(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE) = 'webroot' AND ITEM_ID <> '3P-SAAS3002315EPPRMM', MRR,
+                   0))                                                                   AS WEBROOT_MRR,
+           SUM(IFF(lower(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE) = 'webroot' AND ITEM_ID <> '3P-SAAS3002315EPPRMM',
+                   UNITS,
+                   0))                                                                   AS WEBROOT_UNITS,
+           SUM(IFF(lower(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE) = 'webroot' AND ITEM_ID = '3P-SAAS3002315EPPRMM', MRR,
+                   0))                                                                   AS WEBROOT_OVERAGE_MRR,
+           SUM(IFF(lower(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE) = 'webroot' AND ITEM_ID = '3P-SAAS3002315EPPRMM',
+                   UNITS,
+                   0))                                                                   AS WEBROOT_OVERAGE_UNITS,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS',
+                   ARR, 0)) AS psa_cloud_arr,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'),
+               ARR, 0)) AS psa_on_prem_arr,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'),
+                   ARR, 0)) AS psa_legacy_on_prem_arr,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', arr,
+                   0)) AS automate_cloud_arr,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'), arr,
+                   0)) AS automate_on_prem_arr,
+               SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), arr,
+                   0)) AS automate_legacy_on_prem_arr,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Control' AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', ARR, 0)) AS control_cloud_arr,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Control' AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), ARR, 0)) AS control_on_prem_arr,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS',
+                   units, 0)) AS psa_cloud_units,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'),
+               units, 0)) AS psa_on_prem_units,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'),
+                   units, 0)) AS psa_legacy_on_prem_units,
+            SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate') AND
+                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate')
+                        AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', units,
+                            0)) AS automate_cloud_units,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'), units,
+                   0)) AS automate_on_prem_units,
+           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
+                       AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), units,
+                   0)) AS automate_legacy_on_prem_units
+
+    FROM ANALYTICS.DBO.GROWTH__OBT
+    WHERE REPORTING_DATE = (select distinct
+                            case
+                            when day(CURRENT_DATE()) > 2
+                            then date_trunc('Month',add_months(CURRENT_DATE()::date, -1))
+                            else date_trunc('Month',add_months(CURRENT_DATE()::date, -2))
+                            end as date)
+    -- Change done as part of Sprint 9, it's to make date dynamic based on current date to bring legacy Continumm and Connectwise date at same level by date
+    -- Change initiated by Carl
+    -- DATEADD(MONTH, -1, DATE_TRUNC(MONTH, CURRENT_DATE)) -- Filter to refresh data YYYY-MM-DD
+      AND METRIC_OBJECT = 'applied_billings'
+           AND Company_name <> ''
+    GROUP BY 1, 2
+    HAVING SUM(BILLINGS) > 0
+),
+       customer_2021_stats AS (
+         SELECT COMPANY_ID,
+                ROUND(SUM(BILLINGS)) AS DEC_2021_BILLINGS,
+                ROUND(SUM(ARR))      AS DEC_2021_ARR
+         FROM ANALYTICS.DBO.GROWTH__OBT
+         WHERE REPORTING_DATE = '2021-12-01'
+           AND METRIC_OBJECT = 'applied_billings'
+         GROUP BY 1
+         HAVING SUM(BILLINGS) > 0
+     ),
+
+     customer_2020_stats AS (
+         SELECT COMPANY_ID,
+                ROUND(SUM(BILLINGS)) AS DEC_2020_BILLINGS,
+                ROUND(SUM(ARR))      AS DEC_2020_ARR
+         FROM ANALYTICS.DBO.GROWTH__OBT
+         WHERE REPORTING_DATE = '2020-12-01'
+           AND METRIC_OBJECT = 'applied_billings'
+         GROUP BY 1
+         HAVING SUM(BILLINGS) > 0
+     ),
+
+
+     customer_2019_stats AS (
+         SELECT COMPANY_ID,
+                ROUND(SUM(BILLINGS)) AS DEC_2019_BILLINGS,
+                ROUND(SUM(ARR))      AS DEC_2019_ARR
+         FROM ANALYTICS.DBO.GROWTH__OBT
+         WHERE REPORTING_DATE = '2019-12-01'
+           AND METRIC_OBJECT = 'applied_billings'
+         GROUP BY 1
+         HAVING SUM(BILLINGS) > 0
+     ),
+
+    contract as
+        (
+            with fl as
+                (
+            select COMPANY_ID, CONTRACT_NUMBER, PRODUCT_CATEGORIZATION_ARR_REPORTED_PRODUCT ,
+                   min(START_DATE) as START_DATE,
+                   max(END_DATE) as END_DATE
+                from ANALYTICS.DBO.GROWTH__OBT
+                    where METRIC_OBJECT='renewals'
+                    group by 1,2,3),
+            sl as
+            (select *,
+                   IFF(END_DATE < '2022-01-01'::date, '2099-01-01'::date, END_DATE) as dayfilter,
+                   min(dayfilter) OVER ( PARTITION BY COMPANY_ID order by COMPANY_ID) AS nearestdate,
+                   IFF(nearestdate = END_DATE, 1, 0) as daysfilterflag
+            from fl)
+            select COMPANY_ID,END_DATE as Earliest_Date, listagg(CONTRACT_NUMBER,',') as CONTRACT_NUMBER, listagg(PRODUCT_CATEGORIZATION_ARR_REPORTED_PRODUCT,',') as Products
+                from sl where daysfilterflag=1 group by 1,2
+        ),
+
+--      customer_2018_stats AS (
+--          SELECT COMPANY_NAME_WITH_ID,
+--                 ROUND(SUM(BILLINGS)) AS DEC_2018_BILLINGS,
+--                 ROUND(SUM(ARR))      AS DEC_2018_ARR
+--          FROM ANALYTICS.DBT_BAW.GROWTH__OBT
+--          WHERE REPORTING_DATE = '2018-12-01'
+--            AND METRIC_OBJECT = 'applied_billings'
+--          GROUP BY 1
+--          HAVING SUM(BILLINGS) > 0
+--      ),
+
+     customer_healthscores AS (
+         SELECT SHIP_TO AS COMPANY_ID,
+                HEALTHSCORE,
+                HEALTHSCORE_ALPHA
+         FROM ANALYTICS.DBO_TRANSFORMATION.PARTNER_SUCCESS_INTERMEDIATE__HEALTHSCORES
+             QUALIFY ROW_NUMBER() OVER (PARTITION BY SHIP_TO ORDER BY APDATE DESC) = 1
+     ),
+
+     customer_touch_tier AS (
+         SELECT APPLIED_DATE,
+                SHIP_TO,
+                COUNT(DISTINCT TOUCH_TIER)                                               AS TT_COUNT,
+                LISTAGG(DISTINCT TOUCH_TIER, ' | ') WITHIN GROUP ( ORDER BY TOUCH_TIER ) AS TT_CLASSES,
+                MIN(TOUCH_TIER)                                                          AS TT_MIN,
+                MAX(TOUCH_TIER)                                                          AS TT_MAX,
+                MIN(TOUCH_TIER)                                                          AS TOUCH_TIER
+         FROM ANALYTICS.DBO_TRANSFORMATION.PARTNER_SUCCESS_INTERMEDIATE__TECH_TOUCH_ROSTER
+         GROUP BY 1, 2
+     ),
+     customer_contract_type AS (
+         SELECT APPLIED_DATE,
+                SHIP_TO,
+                LISTAGG(DISTINCT COALESCE(QUOTE_LINE_SUBSCRIPTION_TYPE, 'Non-Bedrock M2M'), ' | ')
+                        WITHIN GROUP ( ORDER BY COALESCE(QUOTE_LINE_SUBSCRIPTION_TYPE, 'Non-Bedrock M2M') ) AS CONTRACT_TYPE
+         FROM ANALYTICS.dbo.CORE__RPT_BILLINGS
+         GROUP BY 1, 2
+     ),
+
+     customer_psa_package AS (
+         SELECT COMPANY_ID,
+--                 COMPANY_NAME_WITH_ID,
+                LISTAGG(DISTINCT IFF(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                                     PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('Basic', 'Standard', 'Premium'),
+                                     PRODUCT_CATEGORIZATION_PRODUCT_PLAN, 'Legacy'), ' | ') WITHIN GROUP ( ORDER BY IFF(
+                                PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage' AND
+                                PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('Basic', 'Standard', 'Premium'),
+                                PRODUCT_CATEGORIZATION_PRODUCT_PLAN, 'Legacy') ) AS PSA_PACKAGE
+         FROM ANALYTICS.DBO.GROWTH__OBT
+         WHERE REPORTING_DATE = (select distinct
+                            case
+                            when day(CURRENT_DATE()) > 2
+                            then date_trunc('Month',add_months(CURRENT_DATE()::date, -1))
+                            else date_trunc('Month',add_months(CURRENT_DATE()::date, -2))
+                            end as date)
+        -- DATEADD(MONTH, -1, DATE_TRUNC(MONTH, CURRENT_DATE))  -- Filter to refresh data YYYY-MM-DD
+           AND METRIC_OBJECT = 'applied_billings'
+           AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage'
+           AND BILLINGS > 0
+         GROUP BY 1
+     ),
+
+     customer_tenure AS (
+         SELECT COMPANY_ID,
+                MIN(CORPORATE_BILLING_START_DATE)                          AS CORPORATE_START_DATE,
+                MAX(CORPORATE_BILLING_REPORTING_PERIOD)                    AS CORPORATE_TENURE,
+                MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Client & Process Mgmt',
+                        PRODUCT_GROUP_BILLING_START_DATE,
+                        NULL))                                             AS PSA_START_DATE,
+                MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Client & Process Mgmt',
+                        PRODUCT_GROUP_BILLING_REPORTING_PERIOD, NULL))     AS PSA_TENURE,
+                MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Remote Monitoring & Mgmt',
+                        PRODUCT_GROUP_BILLING_START_DATE,
+                        NULL))                                             AS RMM_START_DATE,
+                MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_GROUP = 'Remote Monitoring & Mgmt',
+                        PRODUCT_GROUP_BILLING_REPORTING_PERIOD, NULL))     AS RMM_TENURE,
+                MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_PORTFOLIO = 'Security Mgmt',
+                        PRODUCT_PORTFOLIO_BILLING_START_DATE,
+                        NULL))                                             AS SECURITY_START_DATE,
+                MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_PORTFOLIO = 'Security Mgmt',
+                        PRODUCT_PORTFOLIO_BILLING_REPORTING_PERIOD, NULL)) AS SECURITY_TENURE
+         FROM analytics.DBO.growth__obt
+         GROUP BY 1
+     )
+SELECT
+    -- Customer ID
+    cr.COMPANY_ID,
+    cr.COMPANY_NAME,
+    concat(cr.COMPANY_ID,cr.COMPANY_NAME) as COMPANY_NAME_WITH_ID,
+    -- Current ARR
+    cr.CURRENT_ARR,
+    -- 2020 ARR (if available)
+    c21.DEC_2021_BILLINGS,
+    c21.DEC_2021_ARR,
+    -- 2019 ARR (if available)
+    c20.DEC_2020_BILLINGS,
+    c20.DEC_2020_ARR,
+    -- 2018 ARR (if available)
+    c19.DEC_2019_BILLINGS,
+    c19.DEC_2019_ARR,
+    -- Customer Value -- touch tier
+    COALESCE(ctt.TOUCH_TIER, 'Tech Touch (due to non-qualifying MRR)') AS TOUCH_TIER,
+    -- Contract Type
+    cct.CONTRACT_TYPE,
+    -- IT Nation Member (if available)
+--     cr.itnation_active_partner, -- not present in raw data, hence commented
+    cr.itnation_peer_group_active_partner,
+    -- Qualitative Churn Scoring from Salesforce (if available)
+    chs.HEALTHSCORE,
+    chs.HEALTHSCORE_ALPHA,
+    -- Overall Tenure
+    ct.CORPORATE_START_DATE,
+    ct.CORPORATE_TENURE,
+    -- PSA Tenure
+    ct.PSA_START_DATE,
+    ct.PSA_TENURE,
+    cpp.PSA_PACKAGE,
+    -- RMM Tenure
+    ct.RMM_START_DATE,
+    ct.RMM_TENURE,
+    -- Security Tenure
+    ct.SECURITY_START_DATE,
+    ct.SECURITY_TENURE,
+    -- Manage_active_partner
+    cr.manage_active_partner,
+    -- Control_active_partner
+    cr.control_active_partner,
+    -- Automate_active_partner
+    cr.automate_active_partner,
+    -- Sell_active_partner
+    cr.sell_active_partner,
+    -- Fortify_active_partner
+    cr.fortify_active_partner,
+    -- Command_active_partner
+    cr.command_active_partner,
+    -- BrightGauge_active_partner
+    cr.brightgauge_active_partner,
+    -- Recover_active_partner
+    cr.recover_active_partner,
+    -- Help Desk_active_partner
+    cr.help_desk_active_partner,
+    -- Security_active_partner
+    cr.security_active_partner,
+    -- ITBoost_active_partner
+    cr.itboost_active_partner,
+    -- NOC_active_partner
+    -- SOC_active_partner
+    -- PSA Seats Served
+    cr.PSA_UNITS,
+    -- RMM Endpoints Served
+    cr.RMM_UNITS,
+    cr.COMMAND_DESKTOP_UNITS,
+    cr.COMMAND_NETWORK_UNITS,
+    cr.COMMAND_SERVER_UNITS,
+    cr.HELP_DESK_UNITS,
+    -- Security Endpoints Served
+    cr.SECURITY_UNITS,
+    ROUND(cr.PSA_ARR)                                                  AS PSA_ARR,
+    ROUND(cr.SELL_ARR)                                                 AS SELL_ARR,
+    ROUND(cr.BRIGHTGAUGE_ARR)                                          AS BRIGHTGAUGE_ARR,
+    ROUND(cr.ITBOOST_ARR)                                              AS ITBOOST_ARR,
+    ROUND(cr.RMM_ARR)                                                  AS RMM_ARR,
+    ROUND(cr.RMM_ADDITIONAL_ARR)                                       AS RMM_ADDITIONAL_ARR,
+    ROUND(cr.HELP_DESK_ARR)                                            AS HELP_DESK_ARR,
+    ROUND(cr.SECURITY_ARR)                                             AS SECURITY_ARR,
+    ROUND(cr.OTHER_ARR)                                                AS OTHER_ARR,
+    cr.PSA_CLOUD,
+    cr.PSA_LEGACY_ON_PREM,
+    cr.PSA_ON_PREM,
+    cr.SELL_CLOUD,
+    cr.SELL_LEGACY_ON_PREM,
+    cr.SELL_ON_PREM,
+    cr.BRIGHTGAUGE_CLOUD,
+    cr.BRIGHTGAUGE_LEGACY_ON_PREM,
+    cr.BRIGHTGAUGE_ON_PREM,
+    cr.ITBOOST_CLOUD,
+    cr.ITBOOST_LEGACY_ON_PREM,
+    cr.ITBOOST_ON_PREM,
+    cr.RMM_CLOUD,
+    cr.RMM_LEGACY_ON_PREM,
+    cr.RMM_ON_PREM,
+    cr.HELP_DESK_CLOUD,
+    cr.HELP_DESK_LEGACY_ON_PREM,
+    cr.HELP_DESK_ON_PREM,
+    cr.SECURITY_CLOUD,
+    cr.SECURITY_LEGACY_ON_PREM,
+    cr.SECURITY_ON_PREM,
+    cr.OTHER_CLOUD,
+    cr.OTHER_LEGACY_ON_PREM,
+    cr.OTHER_ON_PREM,
+    cr.THIRD_PARTY_MRR,
+    cr.WEBROOT_MRR,
+    cr.WEBROOT_UNITS,
+    cr.WEBROOT_OVERAGE_MRR,
+    cr.WEBROOT_OVERAGE_UNITS,
+    psa_cloud_arr,
+    psa_on_prem_arr,
+    psa_legacy_on_prem_arr,
+    automate_cloud_arr,
+    automate_on_prem_arr,
+    automate_legacy_on_prem_arr,
+--     control_cloud_arr,
+--     control_on_prem_arr,
+    psa_cloud_units,
+    psa_on_prem_units,
+    psa_legacy_on_prem_units,
+    automate_cloud_units,
+    automate_on_prem_units,
+    automate_legacy_on_prem_units,
+    c.CONTRACT_NUMBER,
+    c.Earliest_Date,
+    c.Products
+FROM customer_roster cr
+         LEFT JOIN customer_2021_stats c21 ON c21.COMPANY_ID = cr.COMPANY_ID
+         LEFT JOIN customer_2020_stats c20 ON c20.COMPANY_ID = cr.COMPANY_ID
+         LEFT JOIN customer_2019_stats c19 ON c19.COMPANY_ID = cr.COMPANY_ID
+         LEFT JOIN contract c ON c.COMPANY_ID = cr.COMPANY_ID
+         LEFT JOIN customer_healthscores chs ON chs.COMPANY_ID = cr.COMPANY_ID
+         LEFT JOIN customer_touch_tier ctt ON ctt.APPLIED_DATE = cr.REPORTING_DATE AND ctt.SHIP_TO = cr.COMPANY_ID
+         LEFT JOIN customer_contract_type cct ON cct.APPLIED_DATE = cr.REPORTING_DATE AND cct.SHIP_TO = cr.COMPANY_ID
+         LEFT JOIN customer_psa_package cpp ON cpp.COMPANY_ID = cr.COMPANY_ID
+         LEFT JOIN customer_tenure ct ON ct.COMPANY_ID = cr.COMPANY_ID
