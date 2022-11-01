@@ -1,8 +1,35 @@
-WITH customer_roster AS (
+with new_packages as(
+    select distinct  COMPANY_ID,
+                     min(COMPANY_NAME) as COMPANY_NAME,
+                     max(iff (obt.PRODUCT_CATEGORIZATION_PRODUCT_LINE='CW RMM',
+                         1,0)) as has_cwrmm_mrr,
+                     max(iff (obt.PRODUCT_CATEGORIZATION_PRODUCT_LINE='Business Mgmt Packages',
+                         1,0)) as has_bms_mrr,
+                     max(iff (obt.PRODUCT_CATEGORIZATION_PRODUCT_LINE='CW RMM',
+                         Units,0)) as cwrmm_Units,
+                     max(iff (obt.PRODUCT_CATEGORIZATION_PRODUCT_LINE='CW RMM',
+                         MRR,0)) as cwrmm_mrr,
+                     max(iff (obt.PRODUCT_CATEGORIZATION_PRODUCT_LINE='Business Mgmt Packages',
+                         Units,0)) as bms_Units,
+                     max(iff (obt.PRODUCT_CATEGORIZATION_PRODUCT_LINE='Business Mgmt Packages',
+                         MRR,0)) as bms_mrr
+
+    from ANALYTICS.DBO.GROWTH__OBT obt
+    where REPORTING_DATE = (select distinct
+                            case
+                            when day(CURRENT_DATE()) > 2
+                            then date_trunc('Month',add_months(CURRENT_DATE()::date, -1))
+                            else date_trunc('Month',add_months(CURRENT_DATE()::date, -2))
+                            end as date)
+    and METRIC_OBJECT = 'applied_billings'
+    and obt.mrr>0
+    group by 1
+),
+customer_roster AS (
     SELECT REPORTING_DATE,
 --           COMPANY_NAME_WITH_ID,
-           COMPANY_ID,
-           min(COMPANY_NAME) as COMPANY_NAME,
+           obt.COMPANY_ID,
+           min(obt.COMPANY_NAME) as COMPANY_NAME,
            MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage' AND BILLINGS > 0, 1,
                    0))                                                                   AS manage_active_partner,
            MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Control' AND BILLINGS > 0, 1,
@@ -29,45 +56,59 @@ WITH customer_roster AS (
            MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'IT Nation' AND
                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Evolve', 'ITN Evolve') AND BILLINGS > 0, 1,
                    0))                                                                   AS itnation_peer_group_active_partner,
-           SUM(IFF(ITEM_ID in (
-                'MNH-UKM-A00-LAITTBASAS',
-                'MNH-USM-A00-LAITTBASAS',
-                'MNLICONPREMBMNPRMSUB',
-                'MNLICONPREMBMNSTDSUB',
-                'MNG-LIC-SAASMNGBASAS',
-                'MNG-LIC-SAASITTBASIC',
-                'MNLICONPREMBITTBASIC',
-                'MNG-LIC-SAASITTSTAND',
-                'MNLICONPREMBITTSTDSB',
-                'MNG-LIC-SAASMNPRMSAS',
-                'MNG-LIC-SAASMNGSTDSS',
-                'MNLICONPREMBCWUSERIN',
-                'MNG-LIC-SAASCWUSERIN',
-                'MNLICONPREMBCWUSERPR',
-                'MNG-LIC-SAASCWUSERNM',
-                'MNG-LIC-SAASCLDCHNAM',
-                'LEGACYPSACloudChnnel',
-                'LEGACYSTANDUSERSTND',
-                'MNLICONPREMBSASPLNSV',
-                'MNLICONPREMPCWUSERIN',
-                'MNSASMAININTNAMEUSER',
-                'MNSASMAINADDNAMEUSER',
-                'LEGACYPSA-ASSURANCEA',
-                'LEGACYSKUCLDCHANN',
-                'MNMAINPRPADDINCLUSER',
-                'LEGACYSKUAIINUSRSTD',
-                'MNLICONPREMPCWUSERNM',
-                'LEGACYPSA-ASSURANCEM',
-                'LEGACYMACCONBASQ-Q00',
-                'LEGACYLACWUSERINM01',
-                'MNMAINPRPINTINCLUSER',
-                'LEGACYPSA-ASSURANCEQ'
-                ),
-                   UNITS, 0))                                                            AS PSA_UNITS,
+--            SUM(IFF(ITEM_ID in (
+--                 'MNH-UKM-A00-LAITTBASAS',
+--                 'MNH-USM-A00-LAITTBASAS',
+--                 'MNLICONPREMBMNPRMSUB',
+--                 'MNLICONPREMBMNSTDSUB',
+--                 'MNG-LIC-SAASMNGBASAS',
+--                 'MNG-LIC-SAASITTBASIC',
+--                 'MNLICONPREMBITTBASIC',
+--                 'MNG-LIC-SAASITTSTAND',
+--                 'MNLICONPREMBITTSTDSB',
+--                 'MNG-LIC-SAASMNPRMSAS',
+--                 'MNG-LIC-SAASMNGSTDSS',
+--                 'MNLICONPREMBCWUSERIN',
+--                 'MNG-LIC-SAASCWUSERIN',
+--                 'MNLICONPREMBCWUSERPR',
+--                 'MNG-LIC-SAASCWUSERNM',
+--                 'MNG-LIC-SAASCLDCHNAM',
+--                 'LEGACYPSACloudChnnel',
+--                 'LEGACYSTANDUSERSTND',
+--                 'MNLICONPREMBSASPLNSV',
+--                 'MNLICONPREMPCWUSERIN',
+--                 'MNSASMAININTNAMEUSER',
+--                 'MNSASMAINADDNAMEUSER',
+--                 'LEGACYPSA-ASSURANCEA',
+--                 'LEGACYSKUCLDCHANN',
+--                 'MNMAINPRPADDINCLUSER',
+--                 'LEGACYSKUAIINUSRSTD',
+--                 'MNLICONPREMPCWUSERNM',
+--                 'LEGACYPSA-ASSURANCEM',
+--                 'LEGACYMACCONBASQ-Q00',
+--                 'LEGACYLACWUSERINM01',
+--                 'MNMAINPRPINTINCLUSER',
+--                 'LEGACYPSA-ASSURANCEQ'
+--                 ),
+--                    UNITS, 0))                                                            AS PSA_UNITS,
+            max(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE='Manage'
+                and PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE ='Manage'
+                and PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('-','Basic','Standard','Premium')
+                and PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS', 'Maintenance', 'On Premise (Subscription)')
+                and has_bms_mrr <>1,
+                Units,0)) as PSA_UNITS,
 
-           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
-                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers'), UNITS,
-                   0))                                                                   AS RMM_UNITS,
+--            MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+--                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops','Networks',                                                             'Servers'), UNITS,
+--                    0))                                                                   AS RMM_UNITS,
+           MAX(IFF( (PRODUCT_CATEGORIZATION_PRODUCT_LINE='Automate'
+                    and PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE ='Automate'
+                    and PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('-','Basic','Standard','IIT')
+                    and PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS', 'Maintenance', 'On Premise (Subscription)')
+                    and has_cwrmm_mrr <>1), UNITS,0))
+           + MAX(IFF (PRODUCT_CATEGORIZATION_PRODUCT_LINE ='Command' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Desktops','Servers')
+                   and has_cwrmm_mrr <>1, UNITS,0))                                      AS RMM_UNITS,
            SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Command') AND
                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Desktops'), UNITS,
                    0))                                                                   AS COMMAND_DESKTOP_UNITS,
@@ -84,92 +125,106 @@ WITH customer_roster AS (
            ROUND(SUM(BILLINGS))                                                          AS CURRENT_BILLINGS,
            ROUND(SUM(ARR))                                                               AS CURRENT_ARR,
 
-           -- as part of change on 04/04 based on inputs from Pricing and packaging team
-           SUM(IFF(ITEM_ID in (
-                'MNLICONPREMBCLDCNNC3',
-                'MNG-LIC-SAASCLDCNNCT',
-                'LEGACYLBCLDCNNCTM00',
-                'LEGACYMCLDRPRT2CLDR',
-                'MNLICSAASMODBDXMEGAA',
-                'MNLICONPREMBMNPRMSUB',
-                'CWH-USC-M00-ABMNGEPREM',
-                'CWH-USD-M00-ABMNGEPREM',
-                'CWH-UKD-M00-ABMNGEPREM',
-                'MNLICONPREMBMNSTDSUB',
-                'MNLICONPREMBCWUSERNM',
-                'LEGACYSKUCWUSERNM',
-                'MNLICONPREMBTESTENVI',
-                'MNG-LIC-SAASCLDDTACC',
-                'MNLICONPREMBCWPSAPRI',
-                'MNG-LIC-SAASMNGBASAS',
-                'MNG-LIC-SAASMNGCHGMT',
-                'MNG-LIC-SAASITTBASIC',
-                'MNH-UKM-A00-LAITTBASAS',
-                'MNH-USM-A00-LAITTBASAS',
-                'MNLICONPREMBITTBASIC',
-                'MNH-USM-A00-LBITTBASUB',
-                'MNG-LIC-SAASITTSTAND',
-                'MNLICONPREMBITTSTDSB',
-                'MNG-LIC-SAASCWUSERMO',
-                'PSA - Monthly Mobile',
-                'MNLICONPREMBCWUSERMO',
-                'MNLICSAASMODBDXBIGBX',
-                'MNLICONPREMBEMAILCON',
-                'MNLICONPREMBEMAILCON',
-                'MNLICSAASMODEMAILC02',
-                'MNLICONPREMBMSPCONCT',
-                'MNLICSAASMODMSPCONCT',
-                'LEGACYSKUPROINVRY',
-                'MNLICONPREMBPROINVRY',
-                'MNLICSAASMODPROINVRY',
-                'MNLICONPREMBPROCRMNT',
-                'MNLICSAASMODPROCRMNT',
-                'MNG-LIC-SAASCWUSRFEE',
-                'MNG-LIC-SAASMNPRMSAS',
-                'MNLICONPREMBSANDBOXB',
-                'MNG-LIC-SAASSSANDBOX',
-                'MNLICONPREMBTESTOMPM',
-                'MNLICONPREMBSANDBOXS',
-                'MNG-LIC-SAASMNGSTDSS',
-                'MNLICONPREMBMNSVRFEE',
-                'AULICONPREMMNSVRFEE',
-                'MNLICONPREMBCWUSRCRM',
-                'MNG-LIC-SAASCWUSRCRM',
-                'MNLICONPREMBCWUSERIN',
-                'MNG-LIC-SAASCWUSERIN',
-                'MNLICONPREMBCWUSERPR',
-                'MNG-LIC-SAASCWUSERNM',
-                'MNG-LIC-SAASCWUSERTO',
-                'MNLICONPREMBCWUSRSCH',
-                'MNG-LIC-SAASCWUSRSCH',
-                'MNG-LIC-SAASCLDCHNAM',
-                'LEGACYPSACloudChnnel',
-                'LEGACYSTANDUSERSTND',
-                'MNLICONPREMBSASPLNSV',
-                'LEGACYPSASaaSChannel',
-                'LEGACYPSASAASPLANSEV',
-                'MNLICONPREMPCWUSERIN',
-                'MNSASMAININTNAMEUSER',
-                'MNSASMAINADDNAMEUSER',
-                'LEGACYPSA-ASSURANCEA',
-                'LEGACYSKUCLDCHANN',
-                'MNMAINPRPADDINCLUSER',
-                'LEGACYSKUAIINUSRSTD',
-                'MNLICONPREMPCWUSERNM',
-                'LEGACYPSA-ASSURANCEM',
-                'LEGACYMACCONBASQ-Q00',
-                'LEGACYLACWUSERINM01',
-                'MNMAINPRPINTINCLUSER',
-                'LEGACYPSA-ASSURANCEQ',
-                'LEGACYONPREMMONTHLY'),
-                   ARR, 0))                                                            AS PSA_ARR,
+        --    as part of change on 04/04 based on inputs from Pricing and packaging team
+        --    SUM(IFF(ITEM_ID in (
+        --         'MNLICONPREMBCLDCNNC3',
+        --         'MNG-LIC-SAASCLDCNNCT',
+        --         'LEGACYLBCLDCNNCTM00',
+        --         'LEGACYMCLDRPRT2CLDR',
+        --         'MNLICSAASMODBDXMEGAA',
+        --         'MNLICONPREMBMNPRMSUB',
+        --         'CWH-USC-M00-ABMNGEPREM',
+        --         'CWH-USD-M00-ABMNGEPREM',
+        --         'CWH-UKD-M00-ABMNGEPREM',
+        --         'MNLICONPREMBMNSTDSUB',
+        --         'MNLICONPREMBCWUSERNM',
+        --         'LEGACYSKUCWUSERNM',
+        --         'MNLICONPREMBTESTENVI',
+        --         'MNG-LIC-SAASCLDDTACC',
+        --         'MNLICONPREMBCWPSAPRI',
+        --         'MNG-LIC-SAASMNGBASAS',
+        --         'MNG-LIC-SAASMNGCHGMT',
+        --         'MNG-LIC-SAASITTBASIC',
+        --         'MNH-UKM-A00-LAITTBASAS',
+        --         'MNH-USM-A00-LAITTBASAS',
+        --         'MNLICONPREMBITTBASIC',
+        --         'MNH-USM-A00-LBITTBASUB',
+        --         'MNG-LIC-SAASITTSTAND',
+        --         'MNLICONPREMBITTSTDSB',
+        --         'MNG-LIC-SAASCWUSERMO',
+        --         'PSA - Monthly Mobile',
+        --         'MNLICONPREMBCWUSERMO',
+        --         'MNLICSAASMODBDXBIGBX',
+        --         'MNLICONPREMBEMAILCON',
+        --         'MNLICONPREMBEMAILCON',
+        --         'MNLICSAASMODEMAILC02',
+        --         'MNLICONPREMBMSPCONCT',
+        --         'MNLICSAASMODMSPCONCT',
+        --         'LEGACYSKUPROINVRY',
+        --         'MNLICONPREMBPROINVRY',
+        --         'MNLICSAASMODPROINVRY',
+        --         'MNLICONPREMBPROCRMNT',
+        --         'MNLICSAASMODPROCRMNT',
+        --         'MNG-LIC-SAASCWUSRFEE',
+        --         'MNG-LIC-SAASMNPRMSAS',
+        --         'MNLICONPREMBSANDBOXB',
+        --         'MNG-LIC-SAASSSANDBOX',
+        --         'MNLICONPREMBTESTOMPM',
+        --         'MNLICONPREMBSANDBOXS',
+        --         'MNG-LIC-SAASMNGSTDSS',
+        --         'MNLICONPREMBMNSVRFEE',
+        --         'AULICONPREMMNSVRFEE',
+        --         'MNLICONPREMBCWUSRCRM',
+        --         'MNG-LIC-SAASCWUSRCRM',
+        --         'MNLICONPREMBCWUSERIN',
+        --         'MNG-LIC-SAASCWUSERIN',
+        --         'MNLICONPREMBCWUSERPR',
+        --         'MNG-LIC-SAASCWUSERNM',
+        --         'MNG-LIC-SAASCWUSERTO',
+        --         'MNLICONPREMBCWUSRSCH',
+        --         'MNG-LIC-SAASCWUSRSCH',
+        --         'MNG-LIC-SAASCLDCHNAM',
+        --         'LEGACYPSACloudChnnel',
+        --         'LEGACYSTANDUSERSTND',
+        --         'MNLICONPREMBSASPLNSV',
+        --         'LEGACYPSASaaSChannel',
+        --         'LEGACYPSASAASPLANSEV',
+        --         'MNLICONPREMPCWUSERIN',
+        --         'MNSASMAININTNAMEUSER',
+        --         'MNSASMAINADDNAMEUSER',
+        --         'LEGACYPSA-ASSURANCEA',
+        --         'LEGACYSKUCLDCHANN',
+        --         'MNMAINPRPADDINCLUSER',
+        --         'LEGACYSKUAIINUSRSTD',
+        --         'MNLICONPREMPCWUSERNM',
+        --         'LEGACYPSA-ASSURANCEM',
+        --         'LEGACYMACCONBASQ-Q00',
+        --         'LEGACYLACWUSERINM01',
+        --         'MNMAINPRPINTINCLUSER',
+        --         'LEGACYPSA-ASSURANCEQ',
+        --         'LEGACYONPREMMONTHLY'),
+        --            ARR, 0))                                                            AS PSA_ARR,
+
+            -- A.H. October, 2022: Short term solution to get all the ARR for Manage
+            SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE='Manage'
+                    and PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE='Manage'
+                    and PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('-','Basic','Standard','Premium')
+                    and PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS', 'Maintenance', 'On Premise (Subscription)')
+                    and has_bms_mrr <>1,ARR,0))                                          AS PSA_ARR,
 
            SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Sell', ARR, 0))                AS SELL_ARR,
            SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'BrightGauge', ARR, 0))         AS BRIGHTGAUGE_ARR,
            SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'ITBoost', ARR, 0))             AS ITBOOST_ARR,
-           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
-                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers'), ARR,
-                   0))                                                                   AS RMM_ARR,
+--            SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+--                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers'), ARR,
+--                    0))                                                                   AS RMM_ARR,
+           SUM(IFF( PRODUCT_CATEGORIZATION_PRODUCT_LINE='Automate'
+                    and PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS', 'Maintenance', 'On Premise (Subscription)')
+                    and has_cwrmm_mrr <>1, ARR,0))
+           + SUM(IFF (PRODUCT_CATEGORIZATION_PRODUCT_LINE ='Command' AND
+                   PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Desktops','Servers')
+                   and has_cwrmm_mrr <>1, ARR,0))                                      AS RMM_ARR,
+
            SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate') AND
                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Third Party Patching'), ARR,
                    0))                                                                   AS RMM_ADDITIONAL_ARR,
@@ -374,20 +429,29 @@ WITH customer_roster AS (
                        AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), units,
                    0)) AS automate_legacy_on_prem_units
 
-    FROM ANALYTICS.DBO.GROWTH__OBT
-    WHERE REPORTING_DATE = (select distinct
+    FROM ANALYTICS.DBO.GROWTH__OBT obt
+left join new_packages np
+    on np.COMPANY_ID=obt.COMPANY_ID
+    WHERE
+        REPORTING_DATE = (select distinct
                             case
                             when day(CURRENT_DATE()) > 2
                             then date_trunc('Month',add_months(CURRENT_DATE()::date, -1))
                             else date_trunc('Month',add_months(CURRENT_DATE()::date, -2))
                             end as date)
+--             year(REPORTING_DATE)>2020
+--        and
+--         obt.COMPANY_NAME ilike '%revium%' --or
+--         COMPANY_NAME ilike '%Hubwise%'
     -- Change done as part of Sprint 9, it's to make date dynamic based on current date to bring legacy Continumm and Connectwise date at same level by date
     -- Change initiated by Carl
     -- DATEADD(MONTH, -1, DATE_TRUNC(MONTH, CURRENT_DATE)) -- Filter to refresh data YYYY-MM-DD
       AND METRIC_OBJECT = 'applied_billings'
-           AND Company_name <> ''
+           AND obt.Company_name <> ''
     GROUP BY 1, 2
     HAVING SUM(BILLINGS) > 0
+
+
 ),
        customer_2021_stats AS (
          SELECT COMPANY_ID,
