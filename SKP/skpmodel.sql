@@ -15,6 +15,8 @@ with new_packages as(
                          MRR,0)) as bms_mrr
 
     from ANALYTICS.DBO.GROWTH__OBT obt
+--    from analytics_dev.dbt_ag.Growth__obt  obt
+
     where REPORTING_DATE = (select distinct
                             case
                             when day(CURRENT_DATE()) > 2
@@ -101,14 +103,19 @@ customer_roster AS (
 --            MAX(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
 --                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops','Networks',                                                             'Servers'), UNITS,
 --                    0))                                                                   AS RMM_UNITS,
+
            MAX(IFF( (PRODUCT_CATEGORIZATION_PRODUCT_LINE='Automate'
                     and PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE ='Automate'
-                    and PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('-','Basic','Standard','IIT')
+                    and PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('-', 'Standard','Internal IT')
                     and PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS', 'Maintenance', 'On Premise (Subscription)')
                     and has_cwrmm_mrr <>1), UNITS,0))
-           + MAX(IFF (PRODUCT_CATEGORIZATION_PRODUCT_LINE ='Command' AND
+           + SUM(IFF (PRODUCT_CATEGORIZATION_PRODUCT_LINE ='Command' AND
                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Desktops','Servers')
-                   and has_cwrmm_mrr <>1, UNITS,0))                                      AS RMM_UNITS,
+                   and has_cwrmm_mrr <>1, UNITS,0))
+
+               AS RMM_UNITS,
+
+
            SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Command') AND
                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Desktops'), UNITS,
                    0))                                                                   AS COMMAND_DESKTOP_UNITS,
@@ -208,7 +215,7 @@ customer_roster AS (
             -- A.H. October, 2022: Short term solution to get all the ARR for Manage
             SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE='Manage'
                     and PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE='Manage'
-                    and PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('-','Basic','Standard','Premium')
+                 --   and PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('-','Basic','Standard','Premium')
                     and PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS', 'Maintenance', 'On Premise (Subscription)')
                     and has_bms_mrr <>1,ARR,0))                                          AS PSA_ARR,
 
@@ -429,10 +436,11 @@ customer_roster AS (
                        AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), units,
                    0)) AS automate_legacy_on_prem_units
 
-    FROM ANALYTICS.DBO.GROWTH__OBT obt
+    from ANALYTICS.DBO.GROWTH__OBT obt
+--     from analytics_dev.dbt_ag.Growth__obt  obt
 left join new_packages np
     on np.COMPANY_ID=obt.COMPANY_ID
-    WHERE
+    WHERE --REPORTING_DATE='2022-09-01'
         REPORTING_DATE = (select distinct
                             case
                             when day(CURRENT_DATE()) > 2
@@ -502,7 +510,16 @@ left join new_packages np
                    IFF(END_DATE < '2022-01-01'::date, '2099-01-01'::date, END_DATE) as dayfilter,
                    min(dayfilter) OVER ( PARTITION BY COMPANY_ID order by COMPANY_ID) AS nearestdate,
                    IFF(nearestdate = END_DATE, 1, 0) as daysfilterflag
-            from fl)
+            from fl
+            where END_DATE>
+                 --CAST( GETDATE() AS Date )
+                          (select distinct
+                            case
+                            when day(CURRENT_DATE()) > 2
+                            then date_trunc('Month',add_months(CURRENT_DATE()::date, 0))
+                            else date_trunc('Month',add_months(CURRENT_DATE()::date, -1))
+                            end as date)
+            )
             select COMPANY_ID,END_DATE as Earliest_Date, listagg(CONTRACT_NUMBER,',') as CONTRACT_NUMBER, listagg(PRODUCT_CATEGORIZATION_ARR_REPORTED_PRODUCT,',') as Products
                 from sl where daysfilterflag=1 group by 1,2
         ),
