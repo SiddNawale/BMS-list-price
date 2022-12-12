@@ -87,7 +87,7 @@ FINAL AS (
         contract_start_date,
         contract_end_date,
         ac.channel,
-        subscription_type,
+        ac.subscription_type,
         contracted_quantity,
         ac.currency_iso_code,
         contract_addition,
@@ -131,7 +131,7 @@ FINAL AS (
         analytics.dbo.core__rpt_billings b
         LEFT JOIN fivetran.salesforce.account A
         ON b.ship_to = A.id
-        LEFT JOIN analytics.dbo.seed__item_mapping_for_product_team im
+        LEFT JOIN analytics.DBO_TRANSFORMATION.seed__item_mapping_for_product_team im
         ON im.item_id = b.item_id
         LEFT JOIN active_contracts ac
         ON b.applied_date >= ac.contract_start_date
