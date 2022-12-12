@@ -1,0 +1,1 @@
+select * from ANALYTICS.DBO.GROWTH__OBT obt limit 100
