@@ -1,0 +1,37 @@
+with smileback as (select distinct ltrim(rtrim(sb.company_name))        as company_name,
+                          upper(ltrim(rtrim(sb.company_name))) as company_name_upper,
+                          cast(reporting_date as date)         as reporting_date,
+                          "Product",
+                          "Package",
+                          "Item Description",
+                          item_id,
+                          category,
+                          billings,
+                          arr,
+                          units,
+                          "BILLINGS INCLUDING CREDIT RISK",
+                          mrr,
+                          "BILLINGS LOCAL",
+                          "BILLINGS INCLUDING CREDIT RISK_1",
+                          "Seat Type"
+                   from DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_SMILEBACKTEMPLATEWITHOUTIDS_STAGING sb)
+select distinct smileback.company_name,
+       smileback.company_name_upper,
+       COMPANY_ID,
+       reporting_date,
+       "Product",
+       "Package",
+       "Item Description",
+       ITEM_ID,
+       CATEGORY,
+       BILLINGS,
+       ARR,
+       UNITS,
+       "BILLINGS INCLUDING CREDIT RISK",
+       MRR,
+       "BILLINGS LOCAL",
+       "BILLINGS INCLUDING CREDIT RISK_1",
+       "Seat Type"
+from smileback
+         left join DATAIKU.DEV_DATAIKU_STAGING.PNP_COMPANY_DIM c
+                   on c.COMPANY_NAME_UPPER = smileback.company_name_upper

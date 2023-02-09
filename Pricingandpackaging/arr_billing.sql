@@ -20,8 +20,8 @@ with base as (
         "Brand",
         seat_count."Include in Current ARR calculation",
         case
-            when seat_count."Include in Current ARR calculation" = 1 then 'Include in Current ARR calculation'
-            when seat_count."Include in Current ARR calculation" = 0 then 'Exclude in Current ARR calculation'
+            when seat_count."Include in Current ARR calculation" = 1 then 'Include in ARR calculation'
+            when seat_count."Include in Current ARR calculation" = 0 then 'Exclude from ARR Calculation'
             else null
         end as "Seat Type",
         case
