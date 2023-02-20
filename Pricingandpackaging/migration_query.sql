@@ -356,7 +356,7 @@ from DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_MIGRATION_QUERY_C mi
                   on arr.COMPANY_ID = mi.COMPANY_ID
          left join (DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING) pb
                    on pb.CUR = REFERENCE_CURRENCY
-group by 1, 2,4,5),
+group by 1, 2,4,5,6,future),
 current_monthly as (select arr.COMPANY_ID,product,"Seat Type",sum(BILLINGSLOCALUNIFIED) as "Current Monthly Price",
                                 case
                                     when product in ('Manage', 'Sell','BrightGauge') and "Seat Type" <> 'Exclude from ARR Calculation' then sum(BILLINGSLOCALUNIFIED) end as cmp
@@ -572,7 +572,7 @@ SELECT distinct --removed duplicates
                                        (PSA_UNITS * "Bus Mgmt Future Price Per Seat") as "Future Monthly Price",
                 "Current Monthly Price",
                 cmp,
-                ("Future Monthly Price" -cmp)/cmp as "Monthly Price Increase %"
+                ("Future Monthly Price" - cmp)/nullifzero(cmp) "Monthly Price Increase %"
 
 FROM customer_roster cr
          LEFT JOIN contract c ON c.COMPANY_ID = cr.COMPANY_ID
@@ -583,8 +583,8 @@ FROM customer_roster cr
          LEFT JOIN customer_tenure ct ON ct.COMPANY_ID = cr.COMPANY_ID
          LEFT JOIN DEV_DATAIKU_STAGING.PNP_DASHBOARD_AUTOMATE_AND_MANAGE_CALC_C amc
                    on amc.COMPANY_ID = cr.COMPANY_ID --merged queries
-left join list_price_psa_package on cr.COMPANY_ID = list_price_psa_package.COMPANY_ID
-left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING pb
+         left join list_price_psa_package on cr.COMPANY_ID = list_price_psa_package.COMPANY_ID
+         left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING pb
                                       on pb.CUR = REFERENCE_CURRENCY and LOWERBOUND <= PSA_UNITS
 left join monthly_price_cmp on cr.COMPANY_ID = monthly_price_cmp.COMPANY_ID
 where CURRENT_ARR <> 0 --filtered current arr to not be 0
