@@ -582,7 +582,7 @@ SELECT distinct --removed duplicates
                     when "PSA Package Active Use FINAL" = 'Good' then min(pb."Good")
                     ELSE 0
                     end                                                                         as "Bus Mgmt Future Price Per Seat",
-                (PSA_UNITS * "Bus Mgmt Future Price Per Seat")                                  as "Future Monthly Total",
+                (PSA_UNITS * "Bus Mgmt Future Price Per Seat")                                  as "Future Monthly Price",
                 "Current Monthly Price",
                 cmp,
                 ("Future Monthly Total" - cmp) / nullifzero(cmp)                                   "Monthly Price Increase %"
@@ -604,10 +604,10 @@ SELECT distinct --removed duplicates
                     when future_RMM = 'Undefined' then max(rmmpb."CW-RMM--ADVANCED-EPP")
                     end                                                                            as List_Price_RMM,
 
-(RMM_UNITS * Price_Per_Seat_RMM) as "Future Monthly Total RMM",
+(RMM_UNITS * Price_Per_Seat_RMM) as "Future Monthly Price RMM",
                 "Current Monthly Price RMM",
                 cmp_rmm,
-                ("Future Monthly Total RMM" - cmp_rmm) / nullifzero(cmp_rmm)                     as              "Monthly Price Increase RMM %"
+                ("Future Monthly Price RMM" - cmp_rmm) / nullifzero(cmp_rmm)                     as              "Monthly Price Increase RMM %"
 
 FROM customer_roster cr
          LEFT JOIN contract c ON c.COMPANY_ID = cr.COMPANY_ID
