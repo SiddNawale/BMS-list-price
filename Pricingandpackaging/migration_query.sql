@@ -326,6 +326,25 @@ WITH customer_roster AS (
      monthly_price_cmp as (select COMPANY_ID, sum("Current Monthly Price") as "Current Monthly Price", sum(cmp) as cmp
                            from current_monthly
                            group by 1),
+      current_monthly_rmm as (select arr.COMPANY_ID,
+                                product,
+                                "Seat Type",
+                                sum(BILLINGSLOCALUNIFIED)                  as "Current Monthly Price RMM",
+                                case
+                                    when product in ('Automate', 'Command', 'CW RMM') and
+                                         ("Seat Type" = 'Include in ARR calculation' or "Seat Type" is null)
+                                        then sum(BILLINGSLOCALUNIFIED) end as cmp_rmm
+                         from DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C arr
+                                  left join (select COMPANY_ID, COMPANY_NAME_ID
+                                             from DATAIKU.DEV_DATAIKU_STAGING.PNP_COMPANY_DIM) c
+                                            on c.COMPANY_ID = ARR.COMPANY_ID
+                         where REPORTING_DATE = (select max(REPORTING_DATE)
+                                                 from DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C)
+                           and product in ('Automate', 'Command', 'CW RMM')
+                         group by 1, 2, 3),
+     monthly_price_cmp_rmm as (select COMPANY_ID, sum("Current Monthly Price RMM") as "Current Monthly Price RMM", sum(cmp_rmm) as cmp_rmm
+                           from current_monthly_rmm
+                           group by 1),
      customer_tenure AS (
          SELECT COMPANY_ID,
                 MIN(CORPORATE_BILLING_START_DATE)                          AS CORPORATE_START_DATE,
@@ -550,16 +569,17 @@ SELECT distinct --removed duplicates
                     else null
                     end                                                                         as Future,
                 case
-                    when Future = 'Bus Mgmt Advanced' then max("Best")
-                    when Future = 'Bus Mgmt Standard' then max("Better")
-                    when Future = 'Bus Mgmt Core' then max("Good")
+                    when Future = 'Bus Mgmt Advanced' then max(pb."Best")
+                    when Future = 'Bus Mgmt Standard' then max(pb."Better")
+                    when Future = 'Bus Mgmt Core' then max(pb."Good")
                     else null
                     end                                                                         as "List Price",
-                max(LOWERBOUND)                                                                 as max_lowebound,
+                max(pb.LOWERBOUND)                                                                 as max_lowerbound,
+                max(rmmpb.lowerbound) as max_lowerbound_rmm,
                 case
-                    when "PSA Package Active Use FINAL" = 'Better' then min("Better")
-                    when "PSA Package Active Use FINAL" = 'Best' then min("Best")
-                    when "PSA Package Active Use FINAL" = 'Good' then min("Good")
+                    when "PSA Package Active Use FINAL" = 'Better' then min(pb."Better")
+                    when "PSA Package Active Use FINAL" = 'Best' then min(pb."Best")
+                    when "PSA Package Active Use FINAL" = 'Good' then min(pb."Good")
                     ELSE 0
                     end                                                                         as "Bus Mgmt Future Price Per Seat",
                 (PSA_UNITS * "Bus Mgmt Future Price Per Seat")                                  as "Future Monthly Total",
@@ -567,7 +587,27 @@ SELECT distinct --removed duplicates
                 cmp,
                 ("Future Monthly Total" - cmp) / nullifzero(cmp)                                   "Monthly Price Increase %"
         ,
-                max(REFERENCE_CURRENCY)                                                         as REFERENCE_CURRENCY
+                max(REFERENCE_CURRENCY) as REFERENCE_CURRENCY,
+                iff(automate_active_partner > 0, 'Essentials WO RPP',
+                    iff(command_active_partner > 0, 'Pro W EPP',
+                        'Undefined')
+                    )                                                        as future_RMM,
+                case
+                    when future_RMM = 'Pro W EPP' then min(rmmpb."CW-RMM-ADV-WOUT-EPP")
+                    when future_RMM = 'Essentials WO RPP' then min(rmmpb."CW-RMM-EPB-STANDARD")
+                    when future_RMM = 'Undefined' then min(rmmpb."CW-RMM--ADVANCED-EPP")
+                    end                                                                            as Price_Per_Seat_RMM,
+
+                case
+                    when future_RMM = 'Pro W EPP' then max(rmmpb."CW-RMM-ADV-WOUT-EPP")
+                    when future_RMM = 'Essentials WO RPP' then max(rmmpb."CW-RMM-EPB-STANDARD")
+                    when future_RMM = 'Undefined' then max(rmmpb."CW-RMM--ADVANCED-EPP")
+                    end                                                                            as List_Price_RMM,
+
+(RMM_UNITS * Price_Per_Seat_RMM) as "Future Monthly Total RMM",
+                "Current Monthly Price RMM",
+                cmp_rmm,
+                ("Future Monthly Total RMM" - cmp_rmm) / nullifzero(cmp_rmm)                     as              "Monthly Price Increase RMM %"
 
 FROM customer_roster cr
          LEFT JOIN contract c ON c.COMPANY_ID = cr.COMPANY_ID
@@ -582,9 +622,14 @@ FROM customer_roster cr
                    on arr_c.COMPANY_ID = cr.COMPANY_ID
          left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING pb
                    on pb.CUR =
-                      REFERENCE_CURRENCY and LOWERBOUND <= PSA_UNITS
+                      REFERENCE_CURRENCY and pb.LOWERBOUND <= PSA_UNITS
+
+     left join  DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_RMM_PRICEBOOK_STAGING rmmpb
+                   on rmmpb.CUR =
+                      REFERENCE_CURRENCY and rmmpb.LOWERBOUND <= (COMMAND_DESKTOP_UNITS + COMMAND_NETWORK_UNITS + COMMAND_SERVER_UNITS + AUTOMATE_UNITS)
          left join monthly_price_cmp on cr.COMPANY_ID = monthly_price_cmp.COMPANY_ID
-where CURRENT_ARR <> 0                           --filtered current arr to not be 0
+        left join monthly_price_cmp_rmm on cr.COMPANY_ID = monthly_price_cmp_rmm.COMPANY_ID
+where CURRENT_ARR <> 0 --filtered current arr to not be 0
   and cr.COMPANY_ID not in ('lopez@cinformatique.ch', 'JEREMY.A.BECKER@GMAIL.COM', 'blairphillips@gmail.com',
                             'Chad@4bowers.net', 'dev@bcsint.com', 'bob@compu-gen.com', 'Greg@ablenetworksnj.com',
                             'screenconnect.com@solutionssquad.com',
@@ -593,4 +638,4 @@ group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 
          31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
          59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
          71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98,
-         99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, PSA_UNITS, "Current Monthly Price", cmp, future;
+         99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, PSA_UNITS, "Current Monthly Price", cmp, future, future_RMM,  "Current Monthly Price RMM", cmp_rmm;
