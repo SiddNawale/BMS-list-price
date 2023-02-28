@@ -593,21 +593,21 @@ SELECT distinct --removed duplicates
                         'Undefined')
                     )                                                        as future_RMM,
                 case
-                    when future_RMM = 'Pro W EPP' then min(rmmpb."CW-RMM-ADV-WOUT-EPP")
-                    when future_RMM = 'Essentials WO RPP' then min(rmmpb."CW-RMM-EPB-STANDARD")
-                    when future_RMM = 'Undefined' then min(rmmpb."CW-RMM--ADVANCED-EPP")
+                    when future_RMM = 'Pro W EPP' then cast(min(rmmpb."CW-RMM-ADV-WOUT-EPP") as float)
+                    when future_RMM = 'Essentials WO RPP' then cast(min(rmmpb."CW-RMM-EPB-STANDARD") as float)
+                    when future_RMM = 'Undefined' then cast(min(rmmpb."CW-RMM--ADVANCED-EPP") as float)
                     end                                                                            as Price_Per_Seat_RMM,
 
                 case
-                    when future_RMM = 'Pro W EPP' then max(rmmpb."CW-RMM-ADV-WOUT-EPP")
-                    when future_RMM = 'Essentials WO RPP' then max(rmmpb."CW-RMM-EPB-STANDARD")
-                    when future_RMM = 'Undefined' then max(rmmpb."CW-RMM--ADVANCED-EPP")
+                    when future_RMM = 'Pro W EPP' then cast(max(rmmpb."CW-RMM-ADV-WOUT-EPP") as float)
+                    when future_RMM = 'Essentials WO RPP' then cast(max(rmmpb."CW-RMM-EPB-STANDARD") as float)
+                    when future_RMM = 'Undefined' then cast(max(rmmpb."CW-RMM--ADVANCED-EPP") as float)
                     end                                                                            as List_Price_RMM,
 
 (RMM_UNITS * Price_Per_Seat_RMM) as "Future Monthly Price RMM",
                 "Current Monthly Price RMM",
                 cmp_rmm,
-                ("Future Monthly Price RMM" - cmp_rmm) / nullifzero(cmp_rmm)                     as              "Monthly Price Increase RMM %"
+                ("Future Monthly Price RMM" - cmp_rmm) / nullifzero(cmp_rmm)                                   "Monthly Price Increase RMM %"
 
 FROM customer_roster cr
          LEFT JOIN contract c ON c.COMPANY_ID = cr.COMPANY_ID
@@ -638,4 +638,4 @@ group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 
          31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
          59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
          71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98,
-         99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, PSA_UNITS, "Current Monthly Price", cmp, future, future_RMM,  "Current Monthly Price RMM", cmp_rmm;
+         99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, PSA_UNITS, "Current Monthly Price", cmp, future, future_RMM,  "Current Monthly Price RMM", cmp_rmm
