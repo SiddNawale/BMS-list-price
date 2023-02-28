@@ -310,7 +310,7 @@ WITH customer_roster AS (
      current_monthly as (select arr.COMPANY_ID,
                                 product,
                                 "Seat Type",
-                                sum(BILLINGSLOCALUNIFIED)                  as "Current Monthly Price",
+                                sum(BILLINGSLOCALUNIFIED)                  as "Current Monthly Total",
                                 case
                                     when product in ('Manage', 'Sell', 'BrightGauge', 'ItBoost') and
                                          ("Seat Type" = 'Include in ARR calculation' or "Seat Type" is null)
@@ -323,13 +323,13 @@ WITH customer_roster AS (
                                                  from DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C)
                            and product in ('Manage', 'Sell', 'BrightGauge')
                          group by 1, 2, 3),
-     monthly_price_cmp as (select COMPANY_ID, sum("Current Monthly Price") as "Current Monthly Price", sum(cmp) as cmp
+     monthly_price_cmp as (select COMPANY_ID, sum("Current Monthly Total") as "Current Monthly Total", sum(cmp) as cmp
                            from current_monthly
                            group by 1),
       current_monthly_rmm as (select arr.COMPANY_ID,
                                 product,
                                 "Seat Type",
-                                sum(BILLINGSLOCALUNIFIED)                  as "Current Monthly Price RMM",
+                                sum(BILLINGSLOCALUNIFIED)                  as "Current Monthly Total RMM",
                                 case
                                     when product in ('Automate', 'Command', 'CW RMM') and
                                          ("Seat Type" = 'Include in ARR calculation' or "Seat Type" is null)
@@ -342,7 +342,7 @@ WITH customer_roster AS (
                                                  from DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C)
                            and product in ('Automate', 'Command', 'CW RMM')
                          group by 1, 2, 3),
-     monthly_price_cmp_rmm as (select COMPANY_ID, sum("Current Monthly Price RMM") as "Current Monthly Price RMM", sum(cmp_rmm) as cmp_rmm
+     monthly_price_cmp_rmm as (select COMPANY_ID, sum("Current Monthly Total RMM") as "Current Monthly Total RMM", sum(cmp_rmm) as cmp_rmm
                            from current_monthly_rmm
                            group by 1),
      customer_tenure AS (
@@ -583,7 +583,7 @@ SELECT distinct --removed duplicates
                     ELSE 0
                     end                                                                         as "Bus Mgmt Future Price Per Seat",
                 (PSA_UNITS * "Bus Mgmt Future Price Per Seat")                                  as "Future Monthly Price",
-                "Current Monthly Price",
+                "Current Monthly Total",
                 cmp,
                 ("Future Monthly Price" - cmp) / nullifzero(cmp)                                   "Monthly Price Increase %"
         ,
@@ -605,7 +605,7 @@ SELECT distinct --removed duplicates
                     end                                                                            as List_Price_RMM,
 
 (RMM_UNITS * Price_Per_Seat_RMM) as "Future Monthly Price RMM",
-                "Current Monthly Price RMM",
+                "Current Monthly Total RMM",
                 cmp_rmm,
                 ("Future Monthly Price RMM" - cmp_rmm) / nullifzero(cmp_rmm)                                   "Monthly Price Increase RMM %"
 
@@ -637,5 +637,5 @@ where CURRENT_ARR <> 0 --filtered current arr to not be 0
 group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
          31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
          59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
-         71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98,
-         99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, PSA_UNITS, "Current Monthly Price", cmp, future, future_RMM,  "Current Monthly Price RMM", cmp_rmm
+71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98,
+         99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, PSA_UNITS, "Current Monthly Total", cmp, future, future_RMM,  "Current Monthly Total RMM", cmp_rmm;
