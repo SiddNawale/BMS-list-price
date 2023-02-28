@@ -585,7 +585,7 @@ SELECT distinct --removed duplicates
                 (PSA_UNITS * "Bus Mgmt Future Price Per Seat")                                  as "Future Monthly Price",
                 "Current Monthly Price",
                 cmp,
-                ("Future Monthly Total" - cmp) / nullifzero(cmp)                                   "Monthly Price Increase %"
+                ("Future Monthly Price" - cmp) / nullifzero(cmp)                                   "Monthly Price Increase %"
         ,
                 max(REFERENCE_CURRENCY) as REFERENCE_CURRENCY,
                 iff(automate_active_partner > 0, 'Essentials WO RPP',
