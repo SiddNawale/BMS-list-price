@@ -1,393 +1,473 @@
--- loading automate billings,
-filtering
-ON MAX DATE OF automate billings -- loading rmm billings,
-filtering
-ON MAX DATE OF rmm billings -- checking price
-AND units difference OF partners
-FROM
-    automate TO cwrmm -- pull DATA OF running 12 months
-FROM
-    automate side AS base WITH rmm AS (
-        SELECT
-            obt.company_id,
-            obt.reporting_date,
-            plm."Product Name New" AS item_description,
-            SUM(
-                obt.units
-            ) AS rmm_units,
-            SUM(
-                obt.mrr
-            ) AS rmm_mrr,
-            MAX(
-                obt.reporting_date
-            ) over(
-                PARTITION BY company_id
-            ) AS max_rmm_date,
-            MIN(
-                obt.reporting_date
-            ) over(
-                PARTITION BY company_id
-            ) AS min_rmm_date
-        FROM
-            analytics.dbo.growth__obt obt
-            LEFT JOIN dataiku.prd_dataiku_write."CW_RMM_POST_LAUNCH_PRODUCT_MAPPING" plm
-            ON obt.item_id = plm.product_code
-        WHERE
-            metric_object = 'applied_billings'
-            AND product_categorization_product_line = 'CW RMM' --
-            AND mrr_flag = 1
-            AND reporting_date <=(
-                SELECT
-                    DISTINCT CASE
-                        WHEN DAY(CURRENT_DATE()) > 3 THEN DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -1))
-                        ELSE DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -2))END AS DATE
-                    )
-                GROUP BY
-                    1,
-                    2,
-                    3 --
-                HAVING
-                    -- SUM(units) > 0 --
-                    OR SUM(mrr) > 0
-            ),
-            automate AS (
-                SELECT
-                    DISTINCT obt.company_id,
-                    obt.reporting_date,
-                    MAX(units) AS automate_units,
-                    SUM(mrr) AS automate_mrr,
-                    (
-                        SELECT
-                            DISTINCT CASE
-                                WHEN DAY(CURRENT_DATE()) > 2 THEN DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -1))
-                                ELSE DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -2))END AS DATE
-                            ) AS check_date_automate
-                        FROM
-                            analytics.dbo.growth__obt obt
-                        WHERE
-                            metric_object = 'applied_billings'
-                            AND product_categorization_product_line = 'Automate' --
-                            AND product_categorization_product_package = 'Automate' --
-                            AND product_categorization_license_service_type IN (
-                                'SaaS',
-                                'On Premise (Subscription)',
-                                'Maintenance'
-                            ) --
-                            AND mrr_flag = 1
-                            AND reporting_date <= (
-                                SELECT
-                                    DISTINCT CASE
-                                        WHEN DAY(CURRENT_DATE()) > 3 THEN DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -1))
-                                        ELSE DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -2))END AS DATE
-                                    )
-                                    AND reporting_date >= ('2019-01-01')
-                                GROUP BY
-                                    1,
-                                    2
-                            ),
-                            max_date AS(
-                                -- MAX OF automate DATE
-                                SELECT
-                                    company_id,
-                                    MAX(reporting_date) AS rd
-                                FROM
-                                    automate
-                                GROUP BY
-                                    1
-                            ),
-                            automate_pre_migration_price AS (
-                                -- less than MIN OF cwrmm DATE price
-                                SELECT
-                                    A.company_id,
-                                    A.reporting_date,-- MAX(
-                                        A.reporting_date
-                                    ) AS pre_mig_max_automate,
-                                    SUM(automate_mrr) AS pre_migration_automate_mrr,
-                                    SUM(automate_mrr) * 12 AS pre_migration_automate_arr,
-                                    SUM(automate_units) AS pre_migration_automate_units,
-                                    ROW_NUMBER() over (
-                                        PARTITION BY A.company_id
-                                        ORDER BY
-                                            A.reporting_date DESC
-                                    ) AS pre_migration_month_number_desc,
-                                    1 AS pre_migartion_flag
-                                FROM
-                                    automate A
-                                    INNER JOIN (
-                                        SELECT
-                                            DISTINCT company_id,
-                                            min_rmm_date
-                                        FROM
-                                            rmm
-                                    ) rmm
-                                    ON A.company_id = rmm.company_id
-                                    AND A.reporting_date < rmm.min_rmm_date
-                                GROUP BY
-                                    1,
-                                    2
-                                HAVING
-                                    SUM(automate_mrr) > 0
-                            ),
-                            automate_max_date AS (
-                                SELECT
-                                    automate.*,
-                                    1 AS automate_flag
-                                FROM
-                                    automate
-                                    INNER JOIN max_date
-                                    ON automate.company_id = max_date.company_id
-                                    AND automate.reporting_date = max_date.rd
-                            ),
-                            max_rmm AS (
-                                SELECT
-                                    company_id,
-                                    MAX(reporting_date) AS rd
-                                FROM
-                                    rmm
-                                GROUP BY
-                                    1
-                            ),
-                            rmm_agg_prods AS (
-                                SELECT
-                                    rmm.company_id AS rmm_company_id,
-                                    rmm.item_description,
-                                    rmm.reporting_date AS rmm_reporting_date,
-                                    rmm.min_rmm_date,
-                                    1 AS rmm_flag,
-                                    (
-                                        SELECT
-                                            DISTINCT CASE
-                                                WHEN DAY(CURRENT_DATE()) > 3 THEN DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -1))
-                                                ELSE DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -2))END AS DATE
-                                            ) AS check_date_rmm,
-                                            SUM(rmm_units) AS rmm_units,
-                                            SUM(rmm_mrr) AS rmm_mrr
-                                        FROM
-                                            rmm
-                                            INNER JOIN max_rmm
-                                            ON rmm.company_id = max_rmm.company_id
-                                            AND rmm.reporting_date = max_rmm.rd
-                                        WHERE
-                                            item_description IS NOT NULL
-                                        GROUP BY
-                                            1,
-                                            2,
-                                            3,
-                                            4,
-                                            5 --
-                                        HAVING
-                                            SUM(rmm_units) > 0
-                                            OR SUM(rmm_mrr) > 0
-                                    ),
-                                    rmm_agg_others AS (
-                                        SELECT
-                                            rmm.company_id AS rmm_company_id,
-                                            rmm.reporting_date AS rmm_others_reporting_date,
-                                            1 AS rmm_other_flag,
-                                            SUM(rmm_units) AS rmm_other_units,
-                                            SUM(rmm_mrr) AS rmm__other_mrr,
-                                            (
-                                                SELECT
-                                                    DISTINCT CASE
-                                                        WHEN DAY(CURRENT_DATE()) > 3 THEN DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -1))
-                                                        ELSE DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -2))END AS DATE
-                                                    ) AS check_date_rmm_others
-                                                FROM
-                                                    rmm
-                                                    INNER JOIN max_rmm
-                                                    ON rmm.company_id = max_rmm.company_id
-                                                    AND rmm.reporting_date = max_rmm.rd
-                                                WHERE
-                                                    item_description IS NULL
-                                                GROUP BY
-                                                    1,
-                                                    2 --
-                                                HAVING
-                                                    SUM(rmm_units) > 0
-                                                    OR SUM(rmm_mrr) > 0
-                                            ),
-                                            noc AS (
-                                                SELECT
-                                                    obt.company_id,
-                                                    obt.reporting_date,
-                                                    SUM(
-                                                        IFF(
-                                                            product_categorization_product_package = 'NOC'
-                                                            AND mrr_flag = 1
-                                                            AND product_categorization_product_plan = 'Elite',
-                                                            units,
-                                                            0
-                                                        )
-                                                    ) AS noc_server_units,
-                                                    SUM(
-                                                        IFF(
-                                                            product_categorization_product_package = 'NOC'
-                                                            AND mrr_flag = 1
-                                                            AND product_categorization_product_plan != 'Elite',
-                                                            units,
-                                                            0
-                                                        )
-                                                    ) AS noc_desktop_units,
-                                                    SUM(
-                                                        IFF(
-                                                            product_categorization_product_package = 'NOC'
-                                                            AND mrr_flag = 1
-                                                            AND product_categorization_product_plan = 'Elite',
-                                                            mrr,
-                                                            0
-                                                        )
-                                                    ) AS noc_server_mrr,
-                                                    SUM(
-                                                        IFF(
-                                                            product_categorization_product_package = 'NOC'
-                                                            AND mrr_flag = 1
-                                                            AND product_categorization_product_plan != 'Elite',
-                                                            mrr,
-                                                            0
-                                                        )
-                                                    ) AS noc_desktop_mrr
-                                                FROM
-                                                    analytics.dbo.growth__obt obt
-                                                WHERE
-                                                    metric_object = 'applied_billings'
-                                                    AND mrr_flag = 1
-                                                    AND reporting_date <=(
-                                                        SELECT
-                                                            DISTINCT CASE
-                                                                WHEN DAY(CURRENT_DATE()) > 3 THEN DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -1))
-                                                                ELSE DATE_TRUNC('Month', ADD_MONTHS(CURRENT_DATE() :: DATE, -2))END AS DATE
-                                                            )
-                                                        GROUP BY
-                                                            1,
-                                                            2
-                                                    )
-                                                SELECT
-                                                    DISTINCT rmm.*,
-                                                    amd.company_id,
-                                                    amd.reporting_date AS automate_reporting_date,
-                                                    automate_units,
-                                                    automate_mrr,
-                                                    rmm_other_units,
-                                                    rmm__other_mrr,
-                                                    rmm_other_flag,
-                                                    automate_flag,
-                                                    rmm_others_reporting_date,
-                                                    CASE
-                                                        -- rmm IS NULL,
-                                                        automate
-                                                        AND ONLY rmm other skus are active
-                                                        WHEN rmm_reporting_date IS NULL
-                                                        AND automate_reporting_date = check_date_rmm_others
-                                                        AND automate_reporting_date = rmm_others_reporting_date THEN 'In RMM Implementation' -- rmm
-                                                        AND rmm OTHERS IS NULL,
-                                                        automate IS active = never moved TO rmm / still WITH automate
-                                                        WHEN rmm_reporting_date IS NULL
-                                                        AND rmm_others_reporting_date IS NULL
-                                                        AND automate_reporting_date = check_date_automate THEN 'Still with Automate' -- rmm
-                                                        AND rmm other IS NULL,
-                                                        automate DATA IS NOT active DATE = churned automate
-                                                        WHEN rmm_reporting_date IS NULL
-                                                        AND rmm_others_reporting_date IS NULL
-                                                        AND automate_reporting_date < check_date_automate THEN 'Churned Automate' -- rmm
-                                                        AND automate are active = keeping BOTH
-                                                        WHEN (
-                                                            rmm_reporting_date = automate_reporting_date
-                                                        )
-                                                        AND (
-                                                            rmm_reporting_date = check_date_rmm
-                                                        ) THEN 'On RMM & Automate Billing' -- rmm
-                                                        OR rmm OTHERS reporting DATE IS more than automate,
-                                                        WHEN (
-                                                            automate_reporting_date < check_date_automate
-                                                        )
-                                                        AND (
-                                                            rmm_reporting_date = check_date_rmm
-                                                            OR rmm_others_reporting_date = check_date_rmm_others
-                                                        ) THEN 'Migrated to RMM' -- GREATEST DATE OF rmm
-                                                        AND rmm OTHERS are NOT active,
-                                                        automate IS active
-                                                        WHEN GREATEST(
-                                                            COALESCE(
-                                                                rmm_reporting_date,
-                                                                '2000-01-01'
-                                                            ),
-                                                            COALESCE(
-                                                                rmm_others_reporting_date,
-                                                                '2000-01-01'
-                                                            )
-                                                        ) < check_date_automate
-                                                        AND automate_reporting_date = check_date_automate THEN 'Revert to Automate' -- GREATEST DATE OF BOTH rmm
-                                                        AND rmm OTHERS are NOT active
-                                                        AND GREATEST DATE OF rmms IS more than automate
-                                                        WHEN (
-                                                            GREATEST(
-                                                                COALESCE(
-                                                                    rmm_reporting_date,
-                                                                    '2000-01-01'
-                                                                ),
-                                                                COALESCE(
-                                                                    rmm_others_reporting_date,
-                                                                    '2000-01-01'
-                                                                )
-                                                            ) > automate_reporting_date
-                                                            AND GREATEST(
-                                                                COALESCE(
-                                                                    rmm_reporting_date,
-                                                                    '2000-01-01'
-                                                                ),
-                                                                COALESCE(
-                                                                    rmm_others_reporting_date,
-                                                                    '2000-01-01'
-                                                                )
-                                                            ) < check_date_automate
-                                                        ) THEN 'Churned RMM'
-                                                        WHEN (
-                                                            GREATEST(
-                                                                COALESCE(
-                                                                    rmm_reporting_date,
-                                                                    '2000-02-01'
-                                                                ),
-                                                                COALESCE(
-                                                                    rmm_others_reporting_date,
-                                                                    '2000-01-01'
-                                                                )
-                                                            ) < automate_reporting_date
-                                                            AND automate_reporting_date < check_date_automate
-                                                            AND (
-                                                                COALESCE(
-                                                                    rmm_reporting_date,
-                                                                    rmm_others_reporting_date
-                                                                ) IS NOT NULL
-                                                            )
-                                                        ) THEN 'Revert and Churn Automate'
-                                                        ELSE 'Others'
-                                                    END AS rmm_status,
-                                                    IFF(
-                                                        automate_reporting_date = check_date_automate,
-                                                        1,
-                                                        0
-                                                    ) AS active_automate,
-                                                    rmm_units - automate_units AS units_difference,
-                                                    rmm_mrr - automate_mrr AS mrr_difference,
-                                                    (rmm_mrr) * 12 AS rmm_arr,
-                                                    pmp.pre_migration_automate_mrr,
-                                                    pmp.pre_migration_automate_arr,
-                                                    pmp.pre_migration_automate_units,-- pre_mig_max_automate,
-                                                    noc.noc_desktop_mrr,
-                                                    noc.noc_desktop_units,
-                                                    noc.noc_server_mrr,
-                                                    noc.noc_server_units
-                                                FROM
-                                                    automate_max_date amd
-                                                    LEFT JOIN rmm_agg_prods rmm
-                                                    ON rmm.rmm_company_id = amd.company_id
-                                                    LEFT JOIN rmm_agg_others rmmo
-                                                    ON amd.company_id = rmmo.rmm_company_id
-                                                    LEFT JOIN automate_pre_migration_price pmp
-                                                    ON amd.company_id = pmp.company_id
-                                                    LEFT JOIN noc
-                                                    ON noc.company_id = rmm.rmm_company_id
-                                                    AND noc.reporting_date = rmm.rmm_reporting_date
-                                                    AND pmp.pre_migration_month_number_desc = 1
-                                                WHERE
-                                                    amd.company_id = '0016g00000pUolEAAS'
+SET (base_product,product_1,product_2)=('CW RMM', 'Automate','Command');
+
+-- Loading old product billings, filtering on max date of old product billings
+-- Loading RMM billings, filtering on max date of RMM billings
+-- Checking Price and Units difference of partners from old product to CWRMM
+
+
+WITH migrated_product as (
+    SELECT
+        obt.COMPANY_ID,
+        obt.REPORTING_DATE,
+        plm."Product Name New" as ITEM_DESCRIPTION,
+        sum(obt.UNITS) AS RMM_UNITS,
+        sum(obt.MRR) AS RMM_MRR,
+        max(obt.REPORTING_DATE) over(partition by COMPANY_ID) AS MAX_RMM_DATE,
+        min(obt.REPORTING_DATE) over(partition by COMPANY_ID) AS MIN_RMM_DATE
+    FROM
+        ANALYTICS.DBO.GROWTH__OBT obt
+        left join DATAIKU.PRD_DATAIKU_WRITE."CW_RMM_POST_LAUNCH_PRODUCT_MAPPING" plm on obt.ITEM_ID = plm.product_code
+    where
+        METRIC_OBJECT = 'applied_billings'
+        AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = $base_product
+         and ITEM_DESCRIPTION ilike '%rmm%'
+        and REPORTING_DATE <=(
+            select
+                distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
+        )
+    group by
+        1,
+        2,
+        3
+),
+old_product_1 as (
+    SELECT
+        distinct obt.COMPANY_ID,
+        obt.REPORTING_DATE,
+        max(UNITS) AS OLD_PROD_UNITS,
+        sum(MRR) AS OLD_PROD_MRR,
+        (
+            select
+                distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
+        ) as CHECK_DATE_OLD_PROD
+    FROM
+        ANALYTICS.DBO.GROWTH__OBT obt
+    WHERE
+        METRIC_OBJECT = 'applied_billings'
+        AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = $product_1
+        and REPORTING_DATE <= (
+            select
+                distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
+        )
+        and REPORTING_DATE >= ('2021-01-01')
+        -- filter to limit old product range
+    GROUP BY
+        1,
+        2
+),
+old_product_1_max_date as(
+--     max of Automate date
+    select
+        COMPANY_ID,
+        max(REPORTING_DATE) as rd
+    from
+        old_product_1
+    group by
+        1
+),
+old_product_1_pre_migration_price as (
+--     Less than min of CWRMM date price
+    select
+        a.COMPANY_ID,
+        a.REPORTING_DATE,
+        max(a.REPORTING_DATE) as PRE_MIG_MAX_OLD_PROD,
+        sum(OLD_PROD_MRR) as PRE_MIGRATION_OLD_PROD_MRR,
+        sum(OLD_PROD_MRR) * 12 as PRE_MIGRATION_OLD_PROD_ARR,
+        sum(OLD_PROD_UNITS) as PRE_MIGRATION_OLD_PROD_UNITS,
+        row_number() over (
+            partition by a.COMPANY_ID
+            order by
+                a.REPORTING_DATE desc
+        ) as pre_migration_month_number_desc,
+        1 as PRE_MIGARTION_FLAG
+    from
+        old_product_1 a
+        inner join (
+            select
+                distinct COMPANY_ID,
+                MIN_RMM_DATE
+            from
+                migrated_product
+        ) rmm on a.COMPANY_ID = rmm.COMPANY_ID
+        and a.REPORTING_DATE < rmm.MIN_RMM_DATE
+    group by
+        1,
+        2
+    having
+        sum(OLD_PROD_MRR) > 0
+),
+old_prod_1_max_date as (
+    select
+        old_product_1.*,
+        1 as OLD_PROD_FLAG
+    from
+        old_product_1
+        inner join old_product_1_max_date on old_product_1.COMPANY_ID = old_product_1_max_date.COMPANY_ID
+        and old_product_1.REPORTING_DATE = old_product_1_max_date.rd
+),
+max_migrated_product as (
+    select
+        COMPANY_ID,
+        max(REPORTING_DATE) as rd
+    from
+        migrated_product
+    group by
+        1
+),
+migrated_prod_agg as (
+    select
+        migrated_product.COMPANY_ID as rmm_company_id,
+        migrated_product.ITEM_DESCRIPTION,
+        migrated_product.REPORTING_DATE as rmm_reporting_date,
+        migrated_product.MIN_RMM_DATE,
+        1 as rmm_flag,
+        (
+            select
+                distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
+        ) as check_date_rmm,
+        sum(RMM_UNITS) as RMM_UNITS,
+        sum(RMM_MRR) as RMM_MRR
+    from
+        migrated_product
+        inner join max_migrated_product on migrated_product.company_id = max_migrated_product.COMPANY_ID
+        and migrated_product.REPORTING_DATE = max_migrated_product.rd
+    where
+        ITEM_DESCRIPTION is not null
+    group by
+        1,
+        2,
+        3,
+        4,
+        5
+),
+migrated_product_agg_others as (
+    select
+        migrated_product.COMPANY_ID as rmm_company_id,
+        migrated_product.REPORTING_DATE as rmm_others_reporting_date,
+        1 as rmm_other_flag,
+        sum(RMM_UNITS) as RMM_OTHER_UNITS,
+        sum(RMM_MRR) as RMM__OTHER_MRR,
+        (
+            select
+                distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
+        ) as check_date_rmm_others
+    from
+        migrated_product
+        inner join max_migrated_product on migrated_product.company_id = max_migrated_product.COMPANY_ID
+        and migrated_product.REPORTING_DATE = max_migrated_product.rd
+    where
+        ITEM_DESCRIPTION is null
+    group by
+        1,
+        2
+),
+
+NOC as (
+
+      SELECT
+        obt.COMPANY_ID,
+        obt.REPORTING_DATE,
+        sum(IFF(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'NOC' and MRR_FLAG=1 and PRODUCT_CATEGORIZATION_PRODUCT_PLAN='Elite',UNITS,0)) as  NOC_SERVER_UNITS,
+        sum(IFF(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'NOC' and MRR_FLAG=1 and PRODUCT_CATEGORIZATION_PRODUCT_PLAN!='Elite',UNITS,0)) as  NOC_DESKTOP_UNITS,
+
+        sum(IFF(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'NOC' and MRR_FLAG=1 and PRODUCT_CATEGORIZATION_PRODUCT_PLAN='Elite',MRR,0)) as  NOC_SERVER_MRR,
+        sum(IFF(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'NOC' and MRR_FLAG=1 and PRODUCT_CATEGORIZATION_PRODUCT_PLAN!='Elite',MRR,0)) as  NOC_DESKTOP_MRR
+    FROM
+        ANALYTICS.DBO.GROWTH__OBT obt
+    where
+        METRIC_OBJECT = 'applied_billings'
+        and MRR_FLAG=1
+        and REPORTING_DATE <=(
+            select
+                distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
+        )
+    group by
+        1,
+        2
+),
+  old_prod_1_to_cwrmm as (
+      select distinct rmm.*,
+                      amd.COMPANY_ID,
+                      amd.REPORTING_DATE         as OLD_PROD_REPORTING_DATE,
+                      OLD_PROD_UNITS,
+                      OLD_PROD_MRR,
+                      RMM_OTHER_UNITS,
+                      RMM__OTHER_MRR,
+                      rmm_other_flag,
+                      OLD_PROD_FLAG,
+                      rmm_others_reporting_date,
+--                       *******************************************************************************************************
+                      case --                 RMM is null, Automate and only RMM Other SKUs are active
+                          when RMM_REPORTING_DATE is null
+                              and OLD_PROD_REPORTING_DATE = check_date_rmm_others
+                              and OLD_PROD_REPORTING_DATE = rmm_others_reporting_date
+                              then 3 --                 RMM and RMM Others is null, Automate is active = Never moved to RMM/Still with Automate
+                          when RMM_REPORTING_DATE is null
+                              and rmm_others_reporting_date is null
+                              and OLD_PROD_REPORTING_DATE = check_date_OLD_PROD
+                              then 1 --                 RMM and RMM Other is null,  Automate data is not active date = Churned Automate
+                          when RMM_REPORTING_DATE is null
+                              and rmm_others_reporting_date is null
+                              and OLD_PROD_REPORTING_DATE < check_date_OLD_PROD
+                              then 2 --                 RMM and Automate are active = Keeping both
+                          when (RMM_REPORTING_DATE = OLD_PROD_REPORTING_DATE)
+                              and (RMM_REPORTING_DATE = check_date_rmm)
+                              then 4 --                 RMM or RMM others reporting date is more than Automate,
+                          when (OLD_PROD_REPORTING_DATE < check_date_OLD_PROD)
+                              and (
+                                           RMM_REPORTING_DATE = check_date_rmm
+                                       or rmm_others_reporting_date = check_date_rmm_others
+                                   )
+                              then 5 --                 greatest date of RMM and RMM others are not active, Automate is active
+                          when greatest(
+                                       coalesce(RMM_REPORTING_DATE, '2000-01-01'),
+                                       coalesce(rmm_others_reporting_date, '2000-01-01')
+                                   ) < check_date_OLD_PROD
+                              and OLD_PROD_REPORTING_DATE = check_date_OLD_PROD
+                              then 6 --                 greatest date of Both RMM and RMM Others are not active and greatest date of RMMs is more than Automate
+                          when (
+                                      greatest(
+                                              coalesce(RMM_REPORTING_DATE, '2000-01-01'),
+                                              coalesce(rmm_others_reporting_date, '2000-01-01')
+                                          ) > OLD_PROD_REPORTING_DATE
+                                  and greatest(
+                                              coalesce(RMM_REPORTING_DATE, '2000-01-01'),
+                                              coalesce(rmm_others_reporting_date, '2000-01-01')
+                                          ) < check_date_OLD_PROD
+                              ) then 7
+                          when (
+                                      greatest(
+                                              coalesce(RMM_REPORTING_DATE, '2000-02-01'),
+                                              coalesce(rmm_others_reporting_date, '2000-01-01')
+                                          ) < OLD_PROD_REPORTING_DATE
+                                  and OLD_PROD_REPORTING_DATE < check_date_OLD_PROD
+                                  and (
+                                          coalesce(RMM_REPORTING_DATE, rmm_others_reporting_date) is not null
+                                          )
+                              ) then 8
+
+                          when (
+                                  greatest(
+                                          coalesce(RMM_REPORTING_DATE, '2000-01-01'),
+                                          coalesce(OLD_PROD_REPORTING_DATE, '2000-01-01'),
+                                          coalesce(rmm_others_reporting_date, '2000-01-01')
+                                      ) < check_date_OLD_PROD
+                              ) then 7
+                          else 9 end      as MIGRATION_CODE,
+--                       ***********************************************************************************************
+                      iff(
+                                  OLD_PROD_REPORTING_DATE = check_date_OLD_PROD,
+                                  1,
+                                  0
+                          )                      as ACTIVE_OLD_PROD,
+                      RMM_UNITS - OLD_PROD_UNITS as units_difference,
+                      RMM_MRR - OLD_PROD_MRR     as mrr_difference,
+                      (RMM_MRR) * 12             as RMM_ARR,
+                      pmp.PRE_MIGRATION_OLD_PROD_MRR,
+                      pmp.PRE_MIGRATION_OLD_PROD_ARR,
+                      pmp.PRE_MIGRATION_OLD_PROD_UNITS,
+                      PRE_MIG_MAX_OLD_PROD,
+                      NOC.NOC_DESKTOP_MRR,
+                      NOC.NOC_DESKTOP_UNITS,
+                      NOC.NOC_SERVER_MRR,
+                      NOC.NOC_SERVER_UNITS,
+                      'Automate to CWRMM'        as TABLE_FILTER
+      from old_prod_1_max_date amd
+               left join migrated_prod_agg rmm on rmm.rmm_company_id = amd.COMPANY_ID
+               left join migrated_product_agg_others rmmo on amd.COMPANY_ID = rmmo.rmm_company_id
+               left join old_product_1_pre_migration_price pmp
+                         on amd.COMPANY_ID = pmp.COMPANY_ID and pre_migration_month_number_desc = 1
+               left join NOC on NOC.COMPANY_ID = rmm.rmm_company_id and NOC.REPORTING_DATE = rmm.rmm_reporting_date
+  ),
+
+-- This is end
+
+old_product_2 as (
+    SELECT
+        distinct obt.COMPANY_ID,
+        obt.REPORTING_DATE,
+        max(UNITS) AS OLD_PROD_UNITS,
+        sum(MRR) AS OLD_PROD_MRR,
+        (
+            select
+                distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
+        ) as CHECK_DATE_OLD_PROD
+    FROM
+        ANALYTICS.DBO.GROWTH__OBT obt
+    WHERE
+        METRIC_OBJECT = 'applied_billings'
+        AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = $product_2 --           AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Automate'
+        --           AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS','On Premise (Subscription)','Maintenance')
+        --           and MRR_FLAG=1
+        and REPORTING_DATE <= (
+            select
+                distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
+        )
+        and REPORTING_DATE >= ('2021-01-01')
+    GROUP BY
+        1,
+        2
+),
+old_product_2_max_date as(
+--     max of Automate date
+    select
+        COMPANY_ID,
+        max(REPORTING_DATE) as rd
+    from
+        old_product_2
+    group by
+        1
+),
+old_product_2_pre_migration_price as (
+--     Less than min of CWRMM date price
+    select
+        a.COMPANY_ID,
+        a.REPORTING_DATE,
+        max(a.REPORTING_DATE) as PRE_MIG_MAX_OLD_PROD,
+        sum(OLD_PROD_MRR) as PRE_MIGRATION_OLD_PROD_MRR,
+        sum(OLD_PROD_MRR) * 12 as PRE_MIGRATION_OLD_PROD_ARR,
+        sum(OLD_PROD_UNITS) as PRE_MIGRATION_OLD_PROD_UNITS,
+        row_number() over (
+            partition by a.COMPANY_ID
+            order by
+                a.REPORTING_DATE desc
+        ) as pre_migration_month_number_desc,
+        1 as PRE_MIGARTION_FLAG
+    from
+        old_product_2 a
+        inner join (
+            select
+                distinct COMPANY_ID,
+                MIN_RMM_DATE
+            from
+                migrated_product
+        ) rmm on a.COMPANY_ID = rmm.COMPANY_ID
+        and a.REPORTING_DATE < rmm.MIN_RMM_DATE
+    group by
+        1,
+        2
+    having
+        sum(OLD_PROD_MRR) > 0
+),
+old_prod_2_max_date as (
+    select
+        old_product_2.*,
+        1 as OLD_PROD_FLAG
+    from
+        old_product_2
+        inner join old_product_2_max_date on old_product_2.COMPANY_ID = old_product_2_max_date.COMPANY_ID
+        and old_product_2.REPORTING_DATE = old_product_2_max_date.rd
+),
+old_prod_2_to_cwrmm as
+         (
+             select distinct rmm.*,
+                             amd.COMPANY_ID,
+                             amd.REPORTING_DATE         as OLD_PROD_REPORTING_DATE,
+                             OLD_PROD_UNITS,
+                             OLD_PROD_MRR,
+                             RMM_OTHER_UNITS,
+                             RMM__OTHER_MRR,
+                             rmm_other_flag,
+                             OLD_PROD_FLAG,
+                             rmm_others_reporting_date,
+
+--                              **************************************************************************
+
+                                 case --                 RMM is null, Automate and only RMM Other SKUs are active
+                          when RMM_REPORTING_DATE is null
+                              and OLD_PROD_REPORTING_DATE = check_date_rmm_others
+                              and OLD_PROD_REPORTING_DATE = rmm_others_reporting_date
+                              then 3 --                 RMM and RMM Others is null, Automate is active = Never moved to RMM/Still with Automate
+                          when RMM_REPORTING_DATE is null
+                              and rmm_others_reporting_date is null
+                              and OLD_PROD_REPORTING_DATE = check_date_OLD_PROD
+                              then 1 --                 RMM and RMM Other is null,  Automate data is not active date = Churned Automate
+                          when RMM_REPORTING_DATE is null
+                              and rmm_others_reporting_date is null
+                              and OLD_PROD_REPORTING_DATE < check_date_OLD_PROD
+                              then 2 --                 RMM and Automate are active = Keeping both
+                          when (RMM_REPORTING_DATE = OLD_PROD_REPORTING_DATE)
+                              and (RMM_REPORTING_DATE = check_date_rmm)
+                              then 4 --                 RMM or RMM others reporting date is more than Automate,
+                          when (OLD_PROD_REPORTING_DATE < check_date_OLD_PROD)
+                              and (
+                                           RMM_REPORTING_DATE = check_date_rmm
+                                       or rmm_others_reporting_date = check_date_rmm_others
+                                   )
+                              then 5 --                 greatest date of RMM and RMM others are not active, Automate is active
+                          when greatest(
+                                       coalesce(RMM_REPORTING_DATE, '2000-01-01'),
+                                       coalesce(rmm_others_reporting_date, '2000-01-01')
+                                   ) < check_date_OLD_PROD
+                              and OLD_PROD_REPORTING_DATE = check_date_OLD_PROD
+                              then 6 --                 greatest date of Both RMM and RMM Others are not active and greatest date of RMMs is more than Automate
+                          when (
+                                      greatest(
+                                              coalesce(RMM_REPORTING_DATE, '2000-01-01'),
+                                              coalesce(rmm_others_reporting_date, '2000-01-01')
+                                          ) > OLD_PROD_REPORTING_DATE
+                                  and greatest(
+                                              coalesce(RMM_REPORTING_DATE, '2000-01-01'),
+                                              coalesce(rmm_others_reporting_date, '2000-01-01')
+                                          ) < check_date_OLD_PROD
+                              ) then 7
+                          when (
+                                      greatest(
+                                              coalesce(RMM_REPORTING_DATE, '2000-02-01'),
+                                              coalesce(rmm_others_reporting_date, '2000-01-01')
+                                          ) < OLD_PROD_REPORTING_DATE
+                                  and OLD_PROD_REPORTING_DATE < check_date_OLD_PROD
+                                  and (
+                                          coalesce(RMM_REPORTING_DATE, rmm_others_reporting_date) is not null
+                                          )
+                              ) then 8
+
+                          when (
+                                  greatest(
+                                          coalesce(RMM_REPORTING_DATE, '2000-01-01'),
+                                          coalesce(OLD_PROD_REPORTING_DATE, '2000-01-01'),
+                                          coalesce(rmm_others_reporting_date, '2000-01-01')
+                                      ) < check_date_OLD_PROD
+                              ) then 7
+                          else 9 end      as MIGRATION_CODE,
+
+--                              *****************************************************
+
+
+                             iff(
+                                         OLD_PROD_REPORTING_DATE = check_date_OLD_PROD,
+                                         1,
+                                         0
+                                 )                      as ACTIVE_OLD_PROD,
+                             RMM_UNITS - OLD_PROD_UNITS as units_difference,
+                             RMM_MRR - OLD_PROD_MRR     as mrr_difference,
+                             (RMM_MRR) * 12             as RMM_ARR,
+                             pmp.PRE_MIGRATION_OLD_PROD_MRR,
+                             pmp.PRE_MIGRATION_OLD_PROD_ARR,
+                             pmp.PRE_MIGRATION_OLD_PROD_UNITS,
+                             PRE_MIG_MAX_OLD_PROD,
+                             NOC.NOC_DESKTOP_MRR,
+                             NOC.NOC_DESKTOP_UNITS,
+                             NOC.NOC_SERVER_MRR,
+                             NOC.NOC_SERVER_UNITS,
+                             'Command to CWRMM'        as TABLE_FILTER
+             from old_prod_2_max_date amd
+                      left join migrated_prod_agg rmm on rmm.rmm_company_id = amd.COMPANY_ID
+                      left join migrated_product_agg_others rmmo on amd.COMPANY_ID = rmmo.rmm_company_id
+                      left join old_product_2_pre_migration_price pmp
+                                on amd.COMPANY_ID = pmp.COMPANY_ID and pre_migration_month_number_desc = 1
+                      left join NOC
+                                on NOC.COMPANY_ID = rmm.rmm_company_id and NOC.REPORTING_DATE = rmm.rmm_reporting_date
+
+         )
+         select prd1.*,
+                MS."automate_status" as MIGRATION_STATUS,
+                current_date as run_date
+from old_prod_1_to_cwrmm prd1
+        left join "DATAIKU"."PRD_DATAIKU_WRITE"."CWRMM_MIGRATION_STATUS_MAPPING" MS on prd1.MIGRATION_CODE=MS."code"
+union all
+         select prd2.*
+              ,MS."command_status" as MIGRATION_STATUS,
+                current_date as run_date
+from old_prod_2_to_cwrmm prd2
+        left join "DATAIKU"."PRD_DATAIKU_WRITE"."CWRMM_MIGRATION_STATUS_MAPPING" MS on prd2.MIGRATION_CODE=MS."code"
