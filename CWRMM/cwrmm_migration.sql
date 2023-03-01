@@ -1,4 +1,4 @@
-SET (base_product,product_1,product_2)=('CW RMM', 'Automate','Command');
+-- SET (base_product,product_1,product_2)=('CW RMM', 'Automate','Command');
 
 -- Loading old product billings, filtering on max date of old product billings
 -- Loading RMM billings, filtering on max date of RMM billings
@@ -19,7 +19,7 @@ WITH migrated_product as (
         left join DATAIKU.PRD_DATAIKU_WRITE."CW_RMM_POST_LAUNCH_PRODUCT_MAPPING" plm on obt.ITEM_ID = plm.product_code
     where
         METRIC_OBJECT = 'applied_billings'
-        AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = $base_product
+        AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'CW RMM'
          and ITEM_DESCRIPTION ilike '%rmm%'
         and REPORTING_DATE <=(
             select
@@ -44,7 +44,7 @@ old_product_1 as (
         ANALYTICS.DBO.GROWTH__OBT obt
     WHERE
         METRIC_OBJECT = 'applied_billings'
-        AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = $product_1
+        AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Automate'
         and REPORTING_DATE <= (
             select
                 distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
@@ -280,8 +280,8 @@ NOC as (
                left join NOC on NOC.COMPANY_ID = rmm.rmm_company_id and NOC.REPORTING_DATE = rmm.rmm_reporting_date
   ),
 
--- This is end
-
+-- This is end of prod 1*******************************************************************************************************************************************
+-- ****************************************************************************************************************************************************************
 old_product_2 as (
     SELECT
         distinct obt.COMPANY_ID,
@@ -296,9 +296,7 @@ old_product_2 as (
         ANALYTICS.DBO.GROWTH__OBT obt
     WHERE
         METRIC_OBJECT = 'applied_billings'
-        AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = $product_2 --           AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Automate'
-        --           AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS','On Premise (Subscription)','Maintenance')
-        --           and MRR_FLAG=1
+        AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
         and REPORTING_DATE <= (
             select
                 distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
@@ -460,6 +458,8 @@ old_prod_2_to_cwrmm as
                                 on NOC.COMPANY_ID = rmm.rmm_company_id and NOC.REPORTING_DATE = rmm.rmm_reporting_date
 
          )
+        --  this is end of prod 2 ***********************************************************************************************************
+        -- **********************************************************************************************************************************
          select prd1.*,
                 MS."automate_status" as MIGRATION_STATUS,
                 current_date as run_date
