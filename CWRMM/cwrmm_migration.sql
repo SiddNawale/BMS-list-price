@@ -20,7 +20,7 @@ WITH migrated_product as (
     where
         METRIC_OBJECT = 'applied_billings'
         AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'CW RMM'
-         and ITEM_DESCRIPTION ilike '%rmm%'
+         and ITEM_DESCRIPTION not ilike '%command%'
         and REPORTING_DATE <=(
             select
                 distinct case when day(CURRENT_DATE()) > 3 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1)) else date_trunc('Month', add_months(CURRENT_DATE()::date, -2)) end as date
