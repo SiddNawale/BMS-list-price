@@ -624,7 +624,7 @@ FROM customer_roster cr
          LEFT JOIN customer_contract_type cct ON cct.APPLIED_DATE = cr.REPORTING_DATE AND cct.SHIP_TO = cr.COMPANY_ID
          LEFT JOIN customer_psa_package cpp ON cpp.COMPANY_ID = cr.COMPANY_ID
          LEFT JOIN customer_tenure ct ON ct.COMPANY_ID = cr.COMPANY_ID
-         LEFT JOIN DEV_DATAIKU_STAGING.PNP_DASHBOARD_AUTOMATE_AND_MANAGE_CALC_C amc
+         LEFT JOIN DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_AUTOMATE_AND_MANAGE_CALC_C amc
                    on amc.COMPANY_ID = cr.COMPANY_ID --merged queries
          left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C arr_c
                    on arr_c.COMPANY_ID = cr.COMPANY_ID
