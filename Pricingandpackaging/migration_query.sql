@@ -20,8 +20,7 @@
 --                      -- DATAIKU.{env}.PNP_DASHBOARD_ARR_AND_BILLING_C
 --                              --- current_monthly CTE, current_monthly_rmm CTE
 --
--- Output       - table FQDN
---              - main output
+-- Output       - DATAIKU.{env}.pnp_dashboard_migration_query_c 
 --
 -- Steps        - customer_roster CTE: Base query to compute
 --                      -- Main flags for product usage and active partners
@@ -290,7 +289,7 @@ WITH customer_roster AS (
                                 UNITS,
                                 0
                         )
-                ) as COMMAND_OREFERRED_SERVER_UNITS,
+                ) as COMMAND_PGoodREFERRED_SERVER_UNITS,
                 sum(
                         iff(
                                 PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
