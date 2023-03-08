@@ -14,9 +14,9 @@
 --                              --- TOUCH_TIER, TT max/min etc.
 --                      -- ANALYTICS.dbo.CORE__RPT_BILLINGS
 --                              --- CONTRACT_TYPE
---                      -- DATAIKU.{env}.automate_and_manage_cal (A.H. combine it with this query )
+--                      -- DATAIKU ENV automate_and_manage_cal (A.H. combine it with this query )
 --                              --- Calculated Manage/Automate-specific quantities. E.g. PSA_LEGACY_ON_PREM
---                      -- DATAIKU.{env}.PNP_DASHBOARD_ARR_AND_BILLING_C
+--                      -- DATAIKU ENV PNP_DASHBOARD_ARR_AND_BILLING_C
 --                              --- current_monthly CTE, current_monthly_rmm CTE
 --
 -- Output       - table FQDN
