@@ -19,6 +19,10 @@
 --                              --- Calculated Manage/Automate-specific quantities. E.g. PSA_LEGACY_ON_PREM
 --                      -- DATAIKU.{env}.PNP_DASHBOARD_ARR_AND_BILLING_C
 --                              --- current_monthly CTE, current_monthly_rmm CTE
+--                      --  DATAIKU.{env}.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING
+--                              --- Pricebook details for BMS (A.H. should unify it with RMM)
+--                      -- DATAIKU.{env}.PNP_DASHBOARD_RMM_PRICEBOOK_STAGING
+--                              -- Pricebook details for RMM
 --
 -- Output       - DATAIKU.{env}.pnp_dashboard_migration_query_c 
 --
@@ -48,7 +52,11 @@
 --                      -- "Current Monthly Total RMM", cmp_rmm
 --
 --              -- Final select :
---                      --
+--                      -- Combine all fields
+--                      -- Compute migration logic for RMM / BMS Packages
+--                      -- Bringing in pricebook numbers 
+--                      -- Compute pricing & Packaging metrics for migration
+--                      -- Bringin in currency conversion rates
 --
 --
 --
@@ -56,6 +64,7 @@
 --                      -- More accurate definition of "active partner" for each product
 --                      -- Add aditional fields in the SKP query ?
 --                      -- Merge "automate_and_manage_cal" table into this query
+--                      -- Streamline the pricebook load process
 --                      -- Parametrize the output tables
 --                      -- Unify definitions with other queries (SKP model, dashboard queries etc.)
 --                      -- Merge intermediate queries (e.g. Manage_Automate_calc query)
@@ -1362,9 +1371,9 @@ FROM
         left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING pb on pb.CUR = REFERENCE_CURRENCY
         and pb.LOWERBOUND <= PSA_UNITS
         left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_RMM_PRICEBOOK_STAGING rmmpb on rmmpb.CUR = REFERENCE_CURRENCY
-        and rmmpb.LOWERBOUND <= (
+        and rmmpb.LOWERBOUND <= (--A.H. Do we need it this way ?
                 COMMAND_SERVER_UNITS + COMMAND_NETWORK_UNITS + COMMAND_DESKTOP_UNITS + cr.AUTOMATE_UNITS
-        )
+        ) 
         left join monthly_price_cmp on cr.COMPANY_ID = monthly_price_cmp.COMPANY_ID
         left join monthly_price_cmp_rmm on cr.COMPANY_ID = monthly_price_cmp_rmm.COMPANY_ID
 where
