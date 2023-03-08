@@ -63,7 +63,7 @@
 -------------------------------------------------------------------------------
 WITH customer_roster AS (
     SELECT REPORTING_DATE,
-           --           COMPANY_NAME_WITH_ID,
+                     COMPANY_NAME_WITH_ID,
            rtrim(ltrim(COMPANY_ID)) as COMPANY_ID,
            --trimmed companyy id
            min(
@@ -73,6 +73,7 @@ WITH customer_roster AS (
                                COMPANY_NAME
                        )
                )                    as COMPANY_NAME,
+
            --replaced nothing to see here with null
            -----------------------------------------------------------------
            -- Set active partner flag for each products
@@ -706,12 +707,14 @@ WITH customer_roster AS (
       AND METRIC_OBJECT = 'applied_billings'
       AND Company_name <> ''
     GROUP BY 1,
-             2
+             2,
+             3
     HAVING SUM(BILLINGS) > 0
 ),
      contract as (
          with fl as (
              select COMPANY_ID,
+                    COMPANY_NAME_WITH_ID,
                     CONTRACT_NUMBER,
                     PRODUCT_CATEGORIZATION_ARR_REPORTED_PRODUCT,
                     min(START_DATE) as START_DATE,
@@ -720,7 +723,8 @@ WITH customer_roster AS (
              where METRIC_OBJECT = 'renewals'
              group by 1,
                       2,
-                      3
+                      3,
+                      4
          ),
               sl as (
                   select *,
@@ -738,13 +742,15 @@ WITH customer_roster AS (
                   from fl
               )
          select COMPANY_ID,
+                COMPANY_NAME_WITH_ID,
                 END_DATE                                                  as Earliest_Date,
                 listagg(CONTRACT_NUMBER, ',')                             as CONTRACT_NUMBER,
                 listagg(PRODUCT_CATEGORIZATION_ARR_REPORTED_PRODUCT, ',') as Products
          from sl
          where daysfilterflag = 1
          group by 1,
-                  2
+                  2,
+                  3
      ),
      customer_healthscores AS (
          SELECT SHIP_TO AS COMPANY_ID,
@@ -788,7 +794,7 @@ WITH customer_roster AS (
 -- A.H. : Do we need this or can we just set it from SKU packahe / plan  ?
      customer_psa_package AS (
          SELECT COMPANY_ID,
-                --                 COMPANY_NAME_WITH_ID,
+                                COMPANY_NAME_WITH_ID,
                 LISTAGG(
                         DISTINCT IFF(
                                 PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE = 'Manage'
@@ -817,10 +823,11 @@ WITH customer_roster AS (
            AND METRIC_OBJECT = 'applied_billings'
            AND PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Manage'
            AND BILLINGS > 0
-         GROUP BY 1
+         GROUP BY 1,2
      ),
      current_monthly as (
          select arr.COMPANY_ID,
+                COMPANY_NAME_WITH_ID,
                 product,
                 "Seat Type",
                 sum(BILLINGSLOCALUNIFIED) as "Current Monthly Total",
@@ -844,17 +851,20 @@ WITH customer_roster AS (
            and product in ('Manage', 'Sell', 'BrightGauge')
          group by 1,
                   2,
-                  3
+                  3,
+                  4
      ),
      monthly_price_cmp as (
          select COMPANY_ID,
+                COMPANY_NAME_WITH_ID,
                 sum("Current Monthly Total") as "Current Monthly Total",
                 sum(cmp)                     as cmp
          from current_monthly
-         group by 1
+         group by 1,2
      ),
      current_monthly_rmm as (
          select arr.COMPANY_ID,
+                COMPANY_NAME_WITH_ID,
                 product,
                 "Seat Type",
                 sum(BILLINGSLOCALUNIFIED) as "Current Monthly Total RMM",
@@ -878,17 +888,20 @@ WITH customer_roster AS (
            and product in ('Automate', 'Command', 'CW RMM')
          group by 1,
                   2,
-                  3
+                  3,
+                  4
      ),
      monthly_price_cmp_rmm as (
          select COMPANY_ID,
+                COMPANY_NAME_WITH_ID,
                 sum("Current Monthly Total RMM") as "Current Monthly Total RMM",
                 sum(cmp_rmm)                     as cmp_rmm
          from current_monthly_rmm
-         group by 1
+         group by 1,2
      ),
      customer_tenure AS (
          SELECT COMPANY_ID,
+                COMPANY_NAME_WITH_ID,
                 MIN(CORPORATE_BILLING_START_DATE)       AS CORPORATE_START_DATE,
                 MAX(CORPORATE_BILLING_REPORTING_PERIOD) AS CORPORATE_TENURE,
                 MAX(
@@ -934,7 +947,7 @@ WITH customer_roster AS (
                             )
                     )                                   AS SECURITY_TENURE
          FROM analytics.DBO.growth__obt
-         GROUP BY 1
+         GROUP BY 1,2
      )
 -----------------------------------------------------------------
 -----------------------------------------------------------------
@@ -948,7 +961,8 @@ SELECT distinct --removed duplicates
                 cr.COMPANY_ID,
 
                 cr.COMPANY_NAME,
-                concat(cr.COMPANY_ID, cr.COMPANY_NAME)           as          COMPANY_NAME_WITH_ID,
+                cr.COMPANY_NAME_WITH_ID,
+CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
                 -- Current ARR
                 cr.CURRENT_ARR,
                 cr.itnation_peer_group_active_partner,
@@ -1168,22 +1182,7 @@ SELECT distinct --removed duplicates
                                         'Undefined'
                                 )
                     )                                            as          future_RMM,
-                ---------------
-                case
-                    when automate_active_partner > 0
-                        and webroot_active_partner > 0
-                        and brightgauge_active_partner = 0 then 'CW-RMM-EPB-STANDARD'
-                    when automate_active_partner > 0
-                        and webroot_active_partner > 0
-                        and brightgauge_active_partner > 0 then 'CW-RMM--ADVANCED-EPP'
-                    when automate_active_partner > 0
-                        and webroot_active_partner = 0
-                        and brightgauge_active_partner = 0 then 'CWRMMEPBSTND-W-O-EPP'
-                    when automate_active_partner > 0
-                        and webroot_active_partner = 0
-                        and brightgauge_active_partner > 0 then 'CW-RMM-ADV-WOUT-EPP'
-                    else 'None'
-                    end                                          as          "RMM Package",
+                ------------
                 -------------
                 -- Old logic :
                 -- iff(
@@ -1303,28 +1302,35 @@ SELECT distinct --removed duplicates
                 max(REFERENCE_CURRENCY)                          as          REFERENCE_CURRENCY
 
 FROM customer_roster cr
-         LEFT JOIN contract c ON c.COMPANY_ID = cr.COMPANY_ID
+         LEFT JOIN contract c ON c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
          LEFT JOIN customer_healthscores chs ON chs.COMPANY_ID = cr.COMPANY_ID
          LEFT JOIN customer_touch_tier ctt ON ctt.APPLIED_DATE = cr.REPORTING_DATE
     AND ctt.SHIP_TO = cr.COMPANY_ID
          LEFT JOIN customer_contract_type cct ON cct.APPLIED_DATE = cr.REPORTING_DATE
     AND cct.SHIP_TO = cr.COMPANY_ID
          LEFT JOIN customer_psa_package cpp ON cpp.COMPANY_ID = cr.COMPANY_ID
-         LEFT JOIN customer_tenure ct ON ct.COMPANY_ID = cr.COMPANY_ID
+         LEFT JOIN customer_tenure ct ON ct.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
          LEFT JOIN DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_AUTOMATE_AND_MANAGE_CALC_C amc
                    on amc.COMPANY_ID = cr.COMPANY_ID --merged queries
-         left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C arr_c on arr_c.COMPANY_ID = cr.COMPANY_ID
+         left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C arr_c on arr_c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
          left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING pb
                    on pb.CUR = REFERENCE_CURRENCY
                        and pb.LOWERBOUND <= PSA_UNITS
          left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_RMM_PRICEBOOK_STAGING rmmpb
                    on rmmpb.CUR = REFERENCE_CURRENCY
                        and rmmpb.LOWERBOUND <= (
-                               COMMAND_SERVER_UNITS + COMMAND_NETWORK_UNITS + COMMAND_DESKTOP_UNITS + cr.AUTOMATE_UNITS
-                           )
-         left join monthly_price_cmp on cr.COMPANY_ID = monthly_price_cmp.COMPANY_ID
-         left join monthly_price_cmp_rmm on cr.COMPANY_ID = monthly_price_cmp_rmm.COMPANY_ID
-where CURRENT_ARR <> 0 --filtered current arr to not be 0
+                               --COMMAND_SERVER_UNITS + COMMAND_NETWORK_UNITS + COMMAND_DESKTOP_UNITS + cr.AUTOMATE_UNITS +
+                           iff(
+ automate_active_partner > 0, cr.AUTOMATE_UNITS,
+iff(command_active_partner > 0, COMMAND_TOTAL_UNITS, 0)
+)
+)
+         left join monthly_price_cmp on cr.COMPANY_NAME_WITH_ID = monthly_price_cmp.COMPANY_NAME_WITH_ID
+         left join monthly_price_cmp_rmm on cr.COMPANY_NAME_WITH_ID = monthly_price_cmp_rmm.COMPANY_NAME_WITH_ID
+         left join (select distinct id, CWS_ACCOUNT_UNIQUE_IDENTIFIER_C
+                    from ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__ACCOUNT) bsa
+on bsa.ID = cr.COMPANY_ID
+where CURRENT_ARR <> 0--filtered current arr to not be 0
   and cr.COMPANY_ID not in (
                             'lopez@cinformatique.ch',
                             'JEREMY.A.BECKER@GMAIL.COM',
@@ -1337,6 +1343,8 @@ where CURRENT_ARR <> 0 --filtered current arr to not be 0
                             'andrew@gmal.co.uk'
     )                  -- filtered rows to exclude these
 group by cr.COMPANY_ID,
+         cr.COMPANY_NAME_WITH_ID,
+         CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
          cr.COMPANY_NAME,
          cr.CURRENT_ARR,
          cr.itnation_peer_group_active_partner,
