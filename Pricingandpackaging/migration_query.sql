@@ -14,13 +14,17 @@
 --                              --- TOUCH_TIER, TT max/min etc.
 --                      -- ANALYTICS.dbo.CORE__RPT_BILLINGS
 --                              --- CONTRACT_TYPE
---                      -- DATAIKU ENV automate_and_manage_cal (A.H. combine it with this query )
+--                      -- DATAIKU.ENV.automate_and_manage_cal (A.H. combine it with this query )
 --                              --- Calculated Manage/Automate-specific quantities. E.g. PSA_LEGACY_ON_PREM
---                      -- DATAIKU ENV PNP_DASHBOARD_ARR_AND_BILLING_C
+--                      -- DATAIKU.ENV.PNP_DASHBOARD_ARR_AND_BILLING_C
 --                              --- current_monthly CTE, current_monthly_rmm CTE
+--                      --  DATAIKU.ENV.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING
+--                              --- Pricebook details for BMS (A.H. should unify it with RMM)
+--                      -- DATAIKU.ENV.PNP_DASHBOARD_RMM_PRICEBOOK_STAGING
+--                              -- Pricebook details for RMM
 --
--- Output       - table FQDN
---              - main output
+-- Output       - DATAIKU.ENV.pnp_dashboard_migration_query_c
+--              
 --
 -- Steps        - customer_roster CTE: Base query to compute
 --                      -- Main flags for product usage and active partners
@@ -48,7 +52,11 @@
 --                      -- "Current Monthly Total RMM", cmp_rmm
 --
 --              -- Final select :
---                      --
+--                      -- Combine all fields
+--                      -- Compute migration logic for RMM / BMS Packages
+--                      -- Bringing in pricebook numbers 
+--                      -- Compute pricing & Packaging metrics for migration
+--                      -- Bringin in currency conversion rates
 --
 --
 --
@@ -56,6 +64,7 @@
 --                      -- More accurate definition of "active partner" for each product
 --                      -- Add aditional fields in the SKP query ?
 --                      -- Merge "automate_and_manage_cal" table into this query
+--                      -- Streamline the pricebook load process
 --                      -- Parametrize the output tables
 --                      -- Unify definitions with other queries (SKP model, dashboard queries etc.)
 --                      -- Merge intermediate queries (e.g. Manage_Automate_calc query)
@@ -1183,33 +1192,37 @@ CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
                                 )
                     )                                            as          future_RMM,
                 ------------
-                -------------
-
-------added them back to satisfy pbi
-                    case
-                    when automate_active_partner > 0
-                        and webroot_active_partner > 0
-                        and brightgauge_active_partner = 0 then 'NA'
-                    when automate_active_partner > 0
-                        and webroot_active_partner > 0
-                        and brightgauge_active_partner > 0 then 'NA'
-                    when automate_active_partner > 0
-                        and webroot_active_partner = 0
-                        and brightgauge_active_partner = 0 then 'NA'
-                    when automate_active_partner > 0
-                        and webroot_active_partner = 0
-                        and brightgauge_active_partner > 0 then 'NA'
-                    else 'NA'
-                    end                                          as          "RMM Package",
+                -- Old logic
+                -- case
+                --     when automate_active_partner > 0
+                --         and webroot_active_partner > 0
+                --         and brightgauge_active_partner = 0 then 'CW-RMM-EPB-STANDARD'
+                --     when automate_active_partner > 0
+                --         and webroot_active_partner > 0
+                --         and brightgauge_active_partner > 0 then 'CW-RMM--ADVANCED-EPP'
+                --     when automate_active_partner > 0
+                --         and webroot_active_partner = 0
+                --         and brightgauge_active_partner = 0 then 'CWRMMEPBSTND-W-O-EPP'
+                --     when automate_active_partner > 0
+                --         and webroot_active_partner = 0
+                --         and brightgauge_active_partner > 0 then 'CW-RMM-ADV-WOUT-EPP'
+                --     else 'None'
+                --     end                                          as          "RMM Package",
+                -----------------------------
+                -- Place holder so PBI reloads
+                'NA' as "RMM Package",
+                0 as AUTOMATE_UNITS_CALC,
                 iff(cr.AUTOMATE_UNITS > 0, 0,0) as AUTOMATE_UNITS_CALC,
+
                 -- Old logic :
-                iff(
-                        command_active_partner = 1,
-                        (
-                                0
-                        ),
-                        0
-                ) as RMM_Units_Additive,
+                -- iff(
+                --         command_active_partner = 1,
+                --         (
+                --                 COMMAND_DESKTOP_UNITS + COMMAND_SERVER_UNITS + HELP_DESK_UNITS
+                --         ),
+                --         0
+                -- ) as RMM_Units_Additive,
+                0  as RMM_Units_Additive,
                 -- (
                 --         COMMAND_DESKTOP_UNITS + COMMAND_NETWORK_UNITS + COMMAND_SERVER_UNITS + AUTOMATE_UNITS
                 -- ) as RMM_UNITS,
@@ -1349,7 +1362,6 @@ iff(command_active_partner > 0, COMMAND_TOTAL_UNITS, 0)
                     from ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__ACCOUNT) bsa
 on bsa.ID = cr.COMPANY_ID
 where CURRENT_ARR <> 0--filtered current arr to not be 0
-   and cr.COMPANY_NAME_WITH_ID = 'Visual Edge Inc. (0016g00000pU2CnAAK)'
   and cr.COMPANY_ID not in (
                             'lopez@cinformatique.ch',
                             'JEREMY.A.BECKER@GMAIL.COM',
