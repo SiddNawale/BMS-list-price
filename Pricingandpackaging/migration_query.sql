@@ -1184,14 +1184,32 @@ CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
                     )                                            as          future_RMM,
                 ------------
                 -------------
+
+------added them back to satisfy pbi
+                    case
+                    when automate_active_partner > 0
+                        and webroot_active_partner > 0
+                        and brightgauge_active_partner = 0 then 'NA'
+                    when automate_active_partner > 0
+                        and webroot_active_partner > 0
+                        and brightgauge_active_partner > 0 then 'NA'
+                    when automate_active_partner > 0
+                        and webroot_active_partner = 0
+                        and brightgauge_active_partner = 0 then 'NA'
+                    when automate_active_partner > 0
+                        and webroot_active_partner = 0
+                        and brightgauge_active_partner > 0 then 'NA'
+                    else 'NA'
+                    end                                          as          "RMM Package",
+                iff(cr.AUTOMATE_UNITS > 0, 0,0) as AUTOMATE_UNITS_CALC,
                 -- Old logic :
-                -- iff(
-                --         command_active_partner = 1,
-                --         (
-                --                 COMMAND_DESKTOP_UNITS + COMMAND_SERVER_UNITS + HELP_DESK_UNITS
-                --         ),
-                --         0
-                -- ) as RMM_Units_Additive,
+                iff(
+                        command_active_partner = 1,
+                        (
+                                0
+                        ),
+                        0
+                ) as RMM_Units_Additive,
                 -- (
                 --         COMMAND_DESKTOP_UNITS + COMMAND_NETWORK_UNITS + COMMAND_SERVER_UNITS + AUTOMATE_UNITS
                 -- ) as RMM_UNITS,
@@ -1331,6 +1349,7 @@ iff(command_active_partner > 0, COMMAND_TOTAL_UNITS, 0)
                     from ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__ACCOUNT) bsa
 on bsa.ID = cr.COMPANY_ID
 where CURRENT_ARR <> 0--filtered current arr to not be 0
+   and cr.COMPANY_NAME_WITH_ID = 'Visual Edge Inc. (0016g00000pU2CnAAK)'
   and cr.COMPANY_ID not in (
                             'lopez@cinformatique.ch',
                             'JEREMY.A.BECKER@GMAIL.COM',
