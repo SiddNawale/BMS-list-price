@@ -1210,15 +1210,15 @@ current_monthly as (
         end as cmp
     from
         arr_billings arr
-        left join (
-            select
-                COMPANY_ID,
-                COMPANY_NAME_ID
-            from
-                DATAIKU.DEV_DATAIKU_STAGING.PNP_COMPANY_DIM
-        ) c on c.COMPANY_ID = ARR.COMPANY_ID
-    where
-        MSB_FLAG = 1
+--         left join (
+--             select
+--                 COMPANY_ID,
+--                 COMPANY_NAME_ID
+--             from
+--                 DATAIKU.DEV_DATAIKU_STAGING.PNP_COMPANY_DIM
+--         ) c on c.COMPANY_ID = ARR.COMPANY_ID
+--     where
+--         MSB_FLAG = 1
     group by
         1,
         2,
