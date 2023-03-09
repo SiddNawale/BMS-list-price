@@ -461,7 +461,18 @@ left join new_packages np
 
 
 ),
-       customer_2021_stats AS (
+    customer_2022_stats AS (
+         SELECT COMPANY_ID,
+                ROUND(SUM(BILLINGS)) AS DEC_2022_BILLINGS,
+                ROUND(SUM(ARR))      AS DEC_2022_ARR
+         FROM ANALYTICS.DBO.GROWTH__OBT
+         WHERE REPORTING_DATE = '2022-12-01'
+           AND METRIC_OBJECT = 'applied_billings'
+         GROUP BY 1
+         HAVING SUM(BILLINGS) > 0
+     ),
+
+    customer_2021_stats AS (
          SELECT COMPANY_ID,
                 ROUND(SUM(BILLINGS)) AS DEC_2021_BILLINGS,
                 ROUND(SUM(ARR))      AS DEC_2021_ARR
@@ -616,6 +627,8 @@ SELECT
     -- Current ARR
     cr.CURRENT_ARR,
     -- 2020 ARR (if available)
+    c22.DEC_2022_BILLINGS,
+    c22.DEC_2022_ARR,
     c21.DEC_2021_BILLINGS,
     c21.DEC_2021_ARR,
     -- 2019 ARR (if available)
@@ -737,6 +750,7 @@ SELECT
     c.Earliest_Date,
     c.Products
 FROM customer_roster cr
+         LEFT JOIN customer_2022_stats c22 On c22.COMPANY_ID = cr.COMPANY_ID
          LEFT JOIN customer_2021_stats c21 ON c21.COMPANY_ID = cr.COMPANY_ID
          LEFT JOIN customer_2020_stats c20 ON c20.COMPANY_ID = cr.COMPANY_ID
          LEFT JOIN customer_2019_stats c19 ON c19.COMPANY_ID = cr.COMPANY_ID

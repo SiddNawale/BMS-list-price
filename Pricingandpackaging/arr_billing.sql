@@ -21,8 +21,8 @@ with base as (
         "Brand",
         seat_count."Include in Current ARR calculation",
         case
-            when seat_count."Include in Current ARR calculation" = 1 then 'Include in Current ARR calculation'
-            when seat_count."Include in Current ARR calculation" = 0 then 'Exclude in Current ARR calculation'
+            when seat_count."Include in Current ARR calculation" = 1 then 'Include in ARR calculation'
+            when seat_count."Include in Current ARR calculation" = 0 then 'Exclude from ARR Calculation'
             else null
         end as "Seat Type",
         case
@@ -33,34 +33,34 @@ with base as (
             -- !! A.H., Jan, 2023: The logic below needs to be updated down the road
             WHEN (
                 PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Sell'
-                AND ARR > 0
+                --AND ARR > 0
             ) THEN 'Bus Mgmt'
             WHEN (
                 PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'BrightGauge'
-                AND ARR > 0
+                --AND ARR > 0
             ) THEN 'Bus Mgmt'
             WHEN (
                 PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'ITBoost'
-                AND ARR > 0
+                --AND ARR > 0
             ) THEN 'Bus Mgmt'
             WHEN (
                 PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Command')
                 AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Desktops', 'Networks', 'Servers')
-                AND ARR > 0
+                --AND ARR > 0
             ) THEN 'RMM'
             WHEN (
                 PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate')
                 AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Third Party Patching')
-                AND ARR > 0
+                --AND ARR > 0
             ) THEN 'RMM'
             WHEN (
                 PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
-                AND ARR > 0
+                --AND ARR > 0
             ) THEN 'RMM'
             WHEN (
                 lower(PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE) = 'webroot'
                 AND ITEM_ID = '0016g00001bbIz0AAE'
-                AND MRR > 0
+                --AND MRR > 0
             ) THEN 'RMM'
             ELSE NULL
         END AS Category,
@@ -114,9 +114,8 @@ with base as (
             when reference_currency is null
             and REPORTING_DATE is not null then cast(REPORTING_DATE as varchar)
         end as key
-    FROM
-        ANALYTICS.DBO.GROWTH__OBT as obt
-        left join ANALYTICS.dbo_transformation.base_salesforce__account as sf on upper(sf.id) = upper(obt.company_id)
+    FROM ANALYTICS.DBO.GROWTH__OBT as obt
+        left join ANALYTICS.dbo_transformation.base_salesforce__account as sf on sf.id = obt.company_id
         and sf.name = obt.company_name
         left join analytics.dbo.cw_dw__exchange_rates_push_prior_month as exch on currency_id = exch.FROM_CURRENCY
         and iff(

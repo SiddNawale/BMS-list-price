@@ -1,0 +1,280 @@
+with extras as
+         (
+         select
+              REPORTING_DATE, METRIC_OBJECT, COMPANY_NAME_WITH_ID, ITEM_ID,
+
+              -- Webroot
+              sum(iff (ITEM_ID='3P-SAAS30020015PARNT' and PRODUCT_CATEGORIZATION_PRODUCT_LINE='Security Solution Partners'
+                  ,UNITS,0)) as webroot_epp_units,
+              sum(iff (ITEM_ID='3P-SAAS30020015PARNT' and PRODUCT_CATEGORIZATION_PRODUCT_LINE='Security Solution Partners'
+                  ,mrr,0)) as webroot_epp_mrr,
+              sum(iff (ITEM_ID='3P-SAAS30020015PARNT' and PRODUCT_CATEGORIZATION_PRODUCT_LINE='Security Solution Partners'
+                  ,CONTRACT_ACV,0)) as webroot_epp_acv,
+              sum(iff (ITEM_ID='3P-SAAS3002315EPPRMM' and PRODUCT_CATEGORIZATION_PRODUCT_LINE='Security Solution Partners'
+                  ,UNITS,0)) as webroot_mdr_nonrmm_units,
+              sum(iff (ITEM_ID='3P-SAAS3002315EPPRMM' and PRODUCT_CATEGORIZATION_PRODUCT_LINE='Security Solution Partners'
+                  ,mrr,0)) as webroot_mdr_nonrmm_mrr,
+              sum(iff (ITEM_ID='3P-SAAS3002315EPPRMM' and PRODUCT_CATEGORIZATION_PRODUCT_LINE='Security Solution Partners'
+                  ,CONTRACT_ACV,0)) as webroot_mdr_nonrmm_acv,
+
+              --  IBM MaaS360 (Command for Mobile): lump them all
+              sum(iff (ITEM_DESCRIPTION ilike   '%maas360%' or ITEM_DESCRIPTION ilike   '%mobile%'
+                  ,UNITS,0)) as maas360_units,
+              sum(iff (ITEM_DESCRIPTION ilike   '%maas360%' or ITEM_DESCRIPTION ilike   '%mobile%'
+                  ,mrr,0)) as maas360_mrr,
+
+              -- Auvik (Command for Networks) : lump them all
+              sum(iff (ITEM_DESCRIPTION ilike   '%auvik%' or ITEM_DESCRIPTION ilike   '%command%network%'
+                  ,UNITS,0)) as auvik_units,
+              sum(iff (ITEM_DESCRIPTION ilike   '%auvik%' or ITEM_DESCRIPTION ilike   '%command%network%'
+                  ,mrr,0)) as auvik_mrr
+
+          from
+              ANALYTICS.dbo.growth__obt
+          where
+                Datediff(month, REPORTING_DATE, cast(getdate() AS DATE)) > -1
+                and Datediff(month, REPORTING_DATE, cast(getdate() AS DATE)) < 10
+                AND METRIC_OBJECT = 'applied_billings'
+          group by
+                1, 2, 3, 4
+        ),
+
+extras_agg as
+         (
+         select
+              REPORTING_DATE, METRIC_OBJECT, COMPANY_NAME_WITH_ID,
+
+              -- Webroot
+              sum(webroot_epp_units) as webroot_epp_units,
+              sum(webroot_epp_mrr) as webroot_epp_mrr,
+              sum(webroot_epp_acv) as webroot_epp_acv,
+              sum(webroot_mdr_nonrmm_units) as webroot_mdr_nonrmm_units,
+              sum(webroot_mdr_nonrmm_mrr) as webroot_mdr_nonrmm_mrr,
+              sum(webroot_mdr_nonrmm_acv) as webroot_mdr_nonrmm_acv,
+
+              --  IBM MaaS360 (Command for Mobile): lump them all
+              sum(maas360_units) as maas360_units,
+              sum(maas360_mrr) as maas360_mrr,
+
+              -- Auvik (Command for Networks) : lump them all
+              sum(auvik_units) as auvik_units,
+              sum(auvik_mrr) as auvik_mrr
+
+          from
+            extras
+          group by
+                1, 2, 3
+        )
+
+-- select * from extras_agg
+------------------------------------
+SELECT distinct
+    obt.COMPANY_NAME_WITH_ID,
+    obt.COMPANY_ID, obt.COMPANY_NAME,
+    obt.REPORTING_DATE,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS','On Premise (Subscription)')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers','Desktops')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Essential', 'Elite','Preferred','M2M Essential', 'M2M Elite','M2M Preferred')
+    ,UNITS, 0)) as COMMAND_UNITS,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Desktops')
+    ,UNITS,0 )) as Desktops_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers')
+    ,UNITS,0 )) as Servers_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Essential')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Desktops')
+    ,UNITS,0 )) as Essential_Desktop_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Essential')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers')
+    ,UNITS,0 )) as Essential_server_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Elite')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers')
+    ,UNITS,0 )) as Elite_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Preferred')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers')
+    ,UNITS,0 )) as Preferred_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('24 x 7')
+    ,UNITS,0 )) as HD_Global_24x7_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Business Hours')
+    ,UNITS,0 )) as HD_Global_BH_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('After Hours')
+    ,UNITS,0 )) as HD_Global_AH_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('All US')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('24 x 7')
+    ,UNITS,0 )) as HD_Premier_24x7_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('All US')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Business Hours')
+    ,UNITS,0 )) as HD_Premier_BH_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('All US')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('After Hours')
+    ,UNITS,0 )) as HD_Premier_AH_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Voice US - Chat Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('24 x 7')
+    ,UNITS,0 )) as HD_US_Voice_24x7_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Voice US - Chat Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Business Hours')
+    ,UNITS,0 )) as HD_US_Voice_BH_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Voice US - Chat Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('After Hours')
+    ,UNITS,0 )) as HD_US_Voice_AH_units,
+
+--     sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE in ('Command','Fortify')
+--     and PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Webroot')
+--     or ITEM_DESCRIPTION like '%Endpoint Protection-%' and  ITEM_DESCRIPTION like '% - Server%'
+--     ,UNITS,0)) as Webroot_units,
+    max(ex.webroot_epp_units) as webroot_epp_units,
+    max(ex.webroot_mdr_nonrmm_units) as webroot_mdr_nonrmm_units,
+    max(ex.maas360_units) as maas360_units,
+    max(ex.auvik_units) as auvik_units,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE in ('Command', 'Help Desk')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers','Desktops','Global','All US','Voice US - Chat Global')
+    ,MRR, 0)) as COMMAND_HD_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE in ('SaaS','On Premise (Subscription)')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers','Desktops')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Essential', 'Elite','Preferred')
+    ,MRR, 0)) as COMMAND_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Desktops')
+    ,MRR,0 )) as Desktops_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers')
+    ,MRR,0 )) as Servers_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Essential')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Desktops')
+    ,MRR,0 )) as Essential_Desktop_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Essential')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers')
+    ,MRR,0 )) as Essential_server_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Elite')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers')
+    ,MRR,0 )) as Elite_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Command'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Preferred')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Servers')
+    ,MRR,0 )) as Preferred_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('24 x 7')
+    ,MRR,0 )) as HD_Global_24x7_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Business Hours')
+    ,MRR,0 )) as HD_Global_BH_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('After Hours')
+    ,MRR,0 )) as HD_Global_AH_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('All US')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('24 x 7')
+    ,MRR,0 )) as HD_Premier_24x7_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('All US')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Business Hours')
+    ,MRR,0 )) as HD_Premier_BH_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('All US')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('After Hours')
+    ,MRR,0 )) as HD_Premier_AH_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Voice US - Chat Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('24 x 7')
+    ,MRR,0 )) as HD_US_Voice_24x7_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Voice US - Chat Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('Business Hours')
+    ,MRR,0 )) as HD_US_Voice_BH_MRR,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Help Desk'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Voice US - Chat Global')
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('After Hours')
+    ,MRR,0 )) as HD_US_Voice_AH_MRR,
+
+--     sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE in ('Command','Fortify')
+--     and PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE in ('Webroot')
+--     or  ITEM_DESCRIPTION like '%Endpoint Protection-%' and  ITEM_DESCRIPTION like '% - Server%'
+--     ,MRR,0)) as Webroot_MRR,
+    max(ex.webroot_epp_mrr) as webroot_epp_mrr,
+    max(ex.webroot_mdr_nonrmm_mrr) as webroot_mdr_nonrmm_mrr,
+    max(ex.maas360_mrr) as maas360_mrr,
+    max(ex.auvik_mrr) as auvik_mrr,
+
+    sum(iff(PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Automate'
+    AND PRODUCT_CATEGORIZATION_PRODUCT_PLAN in ('','SaaS','Internal IT','Standard')
+    ,MRR,0 )) as Automate_MRR
+
+from
+    ANALYTICS.DBO.GROWTH__OBT obt
+left join
+        extras_agg ex
+        on ex.REPORTING_DATE = obt.REPORTING_DATE
+            and ex.COMPANY_NAME_WITH_ID=obt.COMPANY_NAME_WITH_ID
+            and ex.METRIC_OBJECT = obt.METRIC_OBJECT
+where
+    --obt.REPORTING_DATE>='2022-08-01' and obt.REPORTING_DATE<='2022-08-01'
+      Datediff(month, obt.REPORTING_DATE, cast(getdate() AS DATE)) >-1
+      AND Datediff(month, obt.REPORTING_DATE, cast(getdate() AS DATE)) < 10
+AND
+    obt.METRIC_OBJECT='applied_billings'
+
+
+group by
+    1,2,3,4
+HAVING
+    COMMAND_HD_MRR > 0
+ORDER BY
+    1
