@@ -1,5 +1,6 @@
 with base as (
-    SELECT COMPANY_ID,
+    SELECT
+        COMPANY_ID,
         obt.company_name,
         reporting_date,
         PRODUCT_CATEGORIZATION_ARR_REPORTED_PRODUCT as Product --Renamed Column
@@ -127,19 +128,21 @@ with base as (
         LEFT JOIN ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__USER u ON a.OWNER_ID = u.ID
         LEFT outer JOIN DATAIKU.DEV_DATAIKU_STAGING.MANAGE_SEAT_COUNT_ARR_STAGING seat_count -- merged manage seat count table
         on obt.ITEM_ID = seat_count."Product Code"
-    WHERE 1 = 1
+    WHERE
+        1 = 1
         AND METRIC_OBJECT = 'applied_billings'
         and REPORTING_DATE <= (
-            select distinct case
-                    when day(CURRENT_DATE()) > 2 then date_trunc('Month', add_months(CURRENT_DATE()::date, -1))
-                    else date_trunc('Month', add_months(CURRENT_DATE()::date, -2))
-                end as date
+            select
+                distinct REPORTING_DATE
+            from
+                DATAIKU.PRD_DATAIKU_WRITE.REPORTING_DATE_LIMIT
         )
         and reporting_date > '2020-10-01'
         AND Datediff(month, reporting_date, cast(getdate() AS DATE)) >= 0
         AND Datediff(month, reporting_date, cast(getdate() AS DATE)) <= 36
         and REPORTING_DATE < cast(getdate() AS DATE) -- prevent future dates
-    GROUP BY COMPANY_ID,
+    GROUP BY
+        COMPANY_ID,
         obt.company_name,
         reporting_date,
         Product,
@@ -159,9 +162,11 @@ with base as (
         "Include in Current ARR calculation",
         "Include in Seat Count",
         "Product Code"
-    HAVING sum(billings) > 0
+    HAVING
+        sum(billings) > 0
 )
-select company_id,
+select
+    company_id,
     company_name,
     reporting_date,
     product,
@@ -194,4 +199,5 @@ select company_id,
     "Include in Current ARR calculation",
     billingslocalunified,
     key
-from base
+from
+    base
