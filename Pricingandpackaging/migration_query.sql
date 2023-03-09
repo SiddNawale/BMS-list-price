@@ -110,6 +110,7 @@ base as (
     SELECT
         REPORTING_DATE,
         COMPANY_ID,
+        COMPANY_NAME_WITH_ID,
         PRODUCT_CATEGORIZATION_PRODUCT_LINE,
         PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE,
         ITEM_DESCRIPTION,
@@ -211,13 +212,15 @@ base as (
         3,
         4,
         5,
-        6
+        6,
+        7
     HAVING
         SUM(BILLINGS) > 0
 ),
 intermediate1 as (
     select
         COMPANY_ID,
+        COMPANY_NAME_WITH_ID,
         case
             when Base_Manage_Legacy_On_Prem = 1 then 1
             when Base_Manage_On_Prem = 1 then 2
@@ -234,16 +237,19 @@ intermediate1 as (
 intermediate2 as (
     select
         COMPANY_ID,
+        COMPANY_NAME_WITH_ID,
         min(Manage_Category) as Manage_Category,
         min(Automate_Category) as Automate_Category
     from
         intermediate1
     group by
-        1
+        1,
+        2
 ),
 intermediate3 as (
     select
         COMPANY_ID,
+        COMPANY_NAME_WITH_ID,
         case
             when Manage_Category = 1 then 'Legacy_On_Prem'
             when Manage_Category = 2 then 'On_Prem'
@@ -262,6 +268,7 @@ intermediate3 as (
 intermediate4 as (
     select
         distinct COMPANY_ID,
+        COMPANY_NAME_WITH_ID,
         Manage_Category,
         Automate_Category
     from
@@ -270,6 +277,7 @@ intermediate4 as (
 intermediate5 as (
     select
         distinct intermediate4.company_id,
+        intermediate4.COMPANY_NAME_WITH_ID,
         manage_category,
         automate_category,
         iff(
@@ -325,32 +333,11 @@ intermediate5 as (
         intermediate4
         left join arr_billings arr -- merged queries step 1
         on intermediate4.COMPANY_ID = arr.COMPANY_ID
-    group by
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        16,
-        17,
-        18,
-        19,
-        20,
-        21
 ),
 intermediate6 as (
     select
         company_id,
+        COMPANY_NAME_WITH_ID,
         manage_category,
         automate_category,
         psa_legacy_on_prem,
@@ -411,7 +398,8 @@ intermediate6 as (
         6,
         7,
         8,
-        9
+        9,
+        10
 ),
 automate_manage_calc as (
     select
@@ -1724,7 +1712,7 @@ FROM
     AND cct.SHIP_TO = cr.COMPANY_ID
     LEFT JOIN customer_psa_package cpp ON cpp.COMPANY_ID = cr.COMPANY_ID
     LEFT JOIN customer_tenure ct ON ct.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
-    LEFT JOIN automate_manage_calc amc on amc.COMPANY_ID = cr.COMPANY_ID --merged queries
+    LEFT JOIN automate_manage_calc amc on amc.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID --merged queries
     left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C arr_c on arr_c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
     left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING pb on pb.CUR = REFERENCE_CURRENCY
     and pb.LOWERBOUND <= PSA_UNITS
@@ -1761,7 +1749,8 @@ where
         'bob@compu-gen.com',
         'Greg@ablenetworksnj.com',
         'screenconnect.com@solutionssquad.com',
-        'andrew@gmal.co.uk'
+        'andrew@gmal.co.uk',
+        '144274'
     ) -- filtered rows to exclude these
 group by
     cr.COMPANY_ID,
