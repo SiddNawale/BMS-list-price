@@ -423,6 +423,7 @@ customer_roster AS (
                    PRODUCT_CATEGORIZATION_PRODUCT_PLAN IN ('-', 'Standard', 'Premium', 'Basic')
                        AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'),
                    units, 0)) AS psa_legacy_on_prem_units,
+
             SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate') AND
                     PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate')
                         AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE = 'SaaS', units,
@@ -431,7 +432,7 @@ customer_roster AS (
                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
                        AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('On Premise (Subscription)'), units,
                    0)) AS automate_on_prem_units,
-           SUM(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
+           max(IFF(PRODUCT_CATEGORIZATION_PRODUCT_LINE IN ('Automate', 'Command') AND
                    PRODUCT_CATEGORIZATION_PRODUCT_PACKAGE IN ('Automate', 'Desktops', 'Networks', 'Servers')
                        AND PRODUCT_CATEGORIZATION_LICENSE_SERVICE_TYPE IN ('Perpetual', 'Maintenance'), units,
                    0)) AS automate_legacy_on_prem_units
