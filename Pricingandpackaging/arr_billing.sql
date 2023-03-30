@@ -2,6 +2,7 @@ with base as (
     SELECT
         COMPANY_ID,
         obt.company_name,
+        COMPANY_NAME_WITH_ID,
         reporting_date,
         PRODUCT_CATEGORIZATION_ARR_REPORTED_PRODUCT as Product --Renamed Column
 ,
@@ -126,7 +127,7 @@ with base as (
         and reporting_date = exch.DATE_EFFECTIVE
         LEFT JOIN ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__ACCOUNT a ON obt.COMPANY_ID = a.ID
         LEFT JOIN ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__USER u ON a.OWNER_ID = u.ID
-        LEFT outer JOIN DATAIKU.DEV_DATAIKU_STAGING.MANAGE_SEAT_COUNT_ARR_STAGING seat_count -- merged manage seat count table
+        LEFT outer JOIN DATAIKU.DEV_DATAIKU_STAGING.MANAGE_SEATCOUNT_ARR_STAGING seat_count -- merged manage seat count table
         on obt.ITEM_ID = seat_count."Product Code"
     WHERE
         1 = 1
@@ -161,13 +162,15 @@ with base as (
         "Brand",
         "Include in Current ARR calculation",
         "Include in Seat Count",
-        "Product Code"
+        "Product Code",
+        COMPANY_NAME_WITH_ID
     HAVING
         sum(billings) > 0
 )
 select
     company_id,
     company_name,
+       COMPANY_NAME_WITH_ID,
     reporting_date,
     product,
     package,
