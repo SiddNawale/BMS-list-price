@@ -328,7 +328,7 @@ intermediate5 as (
         MRR,
         "Brand",
         "Seat Type",
-        UNITS_INCLUDE_FLAG
+        UNITS_INCLUDE_FLAG --                                       MSB_FLAG
     from
         intermediate4
         left join arr_billings arr -- merged queries step 1
@@ -346,10 +346,11 @@ intermediate6 as (
         automate_legacy_on_prem,
         automate_on_prem,
         automate_cloud,
+        --                 MSB_FLAG,
         SUM(
             iff(
                 "Brand" = 'Manage'
-                and "Seat Type" = 'Include in Current ARR calculation',
+                and "Seat Type" = 'Include in BMS ARR calculation',
                 arr,
                 0
             )
@@ -427,12 +428,13 @@ automate_manage_calc as (
     from
         intermediate6
 ),
-customer_roster AS (
+customer_roster_intermediate as (
     SELECT
         REPORTING_DATE,
         COMPANY_NAME_WITH_ID,
+        PRODUCT_CATEGORIZATION_PRODUCT_LINE,
         rtrim(ltrim(COMPANY_ID)) as COMPANY_ID,
-        --trimmed companyy id
+        --trimmed companyy i
         min(
             iff(
                 COMPANY_NAME = '🙈 nothing to see here',
@@ -440,6 +442,27 @@ customer_roster AS (
                 COMPANY_NAME
             )
         ) as COMPANY_NAME,
+        MAX(
+            IFF(
+                PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'Business Mgmt Packages',
+                1,
+                0
+            )
+        ) AS has_BMS_package,
+        MAX(
+            IFF(
+                PRODUCT_CATEGORIZATION_ARR_REPORTED_PRODUCT in ('Manage', 'Sell', 'BrightGauge'),
+                1,
+                0
+            )
+        ) AS MSB_FLAG,
+        MAX(
+            IFF(
+                PRODUCT_CATEGORIZATION_PRODUCT_LINE = 'CW RMM',
+                1,
+                0
+            )
+        ) AS has_CW_RMM,
         --replaced nothing to see here with null
         -----------------------------------------------------------------
         -- Set active partner flag for each products
@@ -1061,9 +1084,94 @@ customer_roster AS (
     GROUP BY
         1,
         2,
-        3
+        3,
+        4
     HAVING
         SUM(BILLINGS) > 0
+),
+customer_roster as (
+    select
+        reporting_date,
+        company_name_with_id,
+        company_name,
+        company_id,
+        max(has_bms_package) as has_bms_package,
+        max(msb_flag) as msb_flag,
+        max(has_cw_rmm) as has_cw_rmm,
+        max(sell_active_partner) as sell_active_partner,
+        max(fortify_active_partner) as fortify_active_partner,
+        max(manage_active_partner) as manage_active_partner,
+        max(control_active_partner) as control_active_partner,
+        max(automate_active_partner) as automate_active_partner,
+        max(command_active_partner) as command_active_partner,
+        max(brightgauge_active_partner) as brightgauge_active_partner,
+        max(recover_active_partner) as recover_active_partner,
+        max(help_desk_active_partner) as help_desk_active_partner,
+        max(itboost_active_partner) as itboost_active_partner,
+        max(security_active_partner) as security_active_partner,
+        max(itnation_active_partner) as itnation_active_partner,
+        max(itnation_peer_group_active_partner) as itnation_peer_group_active_partner,
+        max(webroot_active_partner) as webroot_active_partner,
+        max(automate_units) as automate_units,
+        sum(command_total_units) as command_total_units,
+        sum(command_desktop_units) as command_desktop_units,
+        sum(command_network_units) as command_network_units,
+        sum(command_server_units) as command_server_units,
+        sum(command_essential_desktop_units) as command_essential_desktop_units,
+        sum(command_essential_server_units) as command_essential_server_units,
+        sum(command_elite_server_units) as command_elite_server_units,
+        sum(command_preferred_server_units) as command_preferred_server_units,
+        sum(command_helpdesk_units) as command_helpdesk_units,
+        sum(command_mrr) as command_mrr,
+        sum(command_hd_mrr) as command_hd_mrr,
+        sum(command_desktop_mrr) as command_desktop_mrr,
+        sum(command_server_mrr) as command_server_mrr,
+        sum(command_essential_desktop_mrr) as command_essential_desktop_mrr,
+        sum(command_essential_server_mrr) as command_essential_server_mrr,
+        sum(command_elite_server_mrr) as command_elite_server_mrr,
+        sum(command_preferred_server_mrr) as command_preferred_server_mrr,
+        sum(help_desk_units) as help_desk_units,
+        sum(security_units) as security_units,
+        sum(current_billings) as current_billings,
+        sum(current_arr) as current_arr,
+        sum(sell_arr) as sell_arr,
+        sum(brightgauge_arr) as brightgauge_arr,
+        sum(itboost_arr) as itboost_arr,
+        sum(command_arr) as command_arr,
+        sum(rmm_additional_arr) as rmm_additional_arr,
+        sum(help_desk_arr) as help_desk_arr,
+        sum(security_arr) as security_arr,
+        sum(other_arr) as other_arr,
+        max(sell_cloud) as sell_cloud,
+        max(brightgauge_cloud) as brightgauge_cloud,
+        max(itboost_cloud) as itboost_cloud,
+        max(help_desk_cloud) as help_desk_cloud,
+        max(security_cloud) as security_cloud,
+        max(other_cloud) as other_cloud,
+        max(sell_legacy_on_prem) as sell_legacy_on_prem,
+        max(brightgauge_legacy_on_prem) as brightgauge_legacy_on_prem,
+        max(itboost_legacy_on_prem) as itboost_legacy_on_prem,
+        max(help_desk_legacy_on_prem) as help_desk_legacy_on_prem,
+        max(security_legacy_on_prem) as security_legacy_on_prem,
+        max(other_legacy_on_prem) as other_legacy_on_prem,
+        max(sell_on_prem) as sell_on_prem,
+        max(brightgauge_on_prem) as brightgauge_on_prem,
+        max(itboost_on_prem) as itboost_on_prem,
+        max(help_desk_on_prem) as help_desk_on_prem,
+        max(security_on_prem) as security_on_prem,
+        max(other_on_prem) as other_on_prem,
+        sum(third_party_mrr) as third_party_mrr,
+        sum(webroot_mrr) as webroot_mrr,
+        sum(webroot_units) as webroot_units,
+        sum(webroot_overage_mrr) as webroot_overage_mrr,
+        sum(webroot_overage_units) as webroot_overage_units
+    from
+        customer_roster_intermediate
+    group by
+        1,
+        2,
+        3,
+        4
 ),
 contract as (
     with fl as (
@@ -1204,21 +1312,20 @@ current_monthly as (
         case
             when product in ('Manage', 'Sell', 'BrightGauge', 'ItBoost')
             and (
-                "Seat Type" = 'Include in ARR calculation'
+                "Seat Type" = 'Include in BMS ARR calculation'
                 or "Seat Type" is null
             ) then sum(BILLINGSLOCALUNIFIED)
         end as cmp
     from
-        arr_billings arr
---         left join (
---             select
---                 COMPANY_ID,
---                 COMPANY_NAME_ID
---             from
---                 DATAIKU.DEV_DATAIKU_STAGING.PNP_COMPANY_DIM
---         ) c on c.COMPANY_ID = ARR.COMPANY_ID
---     where
---         MSB_FLAG = 1
+        arr_billings arr --                  left join (
+        --                  select
+        --                      COMPANY_ID,
+        --                      COMPANY_NAME_ID
+        --                  from
+        --                      DATAIKU.DEV_DATAIKU_STAGING.PNP_COMPANY_DIM
+        --              ) c on c.COMPANY_ID = ARR.COMPANY_ID
+    where
+        MSB_FLAG = 1
     group by
         1,
         2,
@@ -1247,21 +1354,20 @@ current_monthly_rmm as (
         case
             when product in ('Automate', 'Command', 'CW RMM')
             and (
-                "Seat Type" = 'Include in ARR calculation'
+                "Seat Type" = 'Include in RMM ARR calculation'
                 or "Seat Type" is null
             ) then sum(BILLINGSLOCALUNIFIED)
         end as cmp_rmm
     from
-        arr_billings arr
---         left join (
---             select
---                 COMPANY_ID,
---                 COMPANY_NAME_ID
---             from
---                 DATAIKU.DEV_DATAIKU_STAGING.PNP_COMPANY_DIM
---         ) c on c.COMPANY_ID = ARR.COMPANY_ID
---     where
---         MSB_FLAG = 1
+        arr_billings arr --         left join (
+        --             select
+        --                 COMPANY_ID,
+        --                 COMPANY_NAME_ID
+        --             from
+        --                 DATAIKU.DEV_DATAIKU_STAGING.PNP_COMPANY_DIM
+        --         ) c on c.COMPANY_ID = ARR.COMPANY_ID
+    where
+        product in ('Automate', 'Command', 'CW RMM')
     group by
         1,
         2,
@@ -1347,6 +1453,7 @@ SELECT
     cr.COMPANY_NAME,
     cr.COMPANY_NAME_WITH_ID,
     CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
+    cr.reporting_date,
     -- Current ARR
     cr.CURRENT_ARR,
     cr.itnation_peer_group_active_partner,
@@ -1681,6 +1788,7 @@ SELECT
         when "PSA Package Active Use FINAL" = 'Good' then 'Bus Mgmt Core'
         else null
     end as Future,
+    --                     MSB_FLAG,
     case
         when Future = 'Bus Mgmt Advanced' then max(pb."Best")
         when Future = 'Bus Mgmt Standard' then max(pb."Better")
@@ -1701,7 +1809,10 @@ SELECT
     --Pricebook details (A.H. needs checking)
     max(pb.LOWERBOUND) as max_lowerbound,
     max(rmmpb.lowerbound) as max_lowerbound_rmm,
-    max(REFERENCE_CURRENCY) as REFERENCE_CURRENCY
+    max(REFERENCE_CURRENCY) as REFERENCE_CURRENCY,
+    has_BMS_package,
+    has_CW_RMM,
+    MSB_FLAG
 FROM
     customer_roster cr
     LEFT JOIN contract c ON c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
@@ -1756,6 +1867,7 @@ group by
     cr.COMPANY_ID,
     cr.COMPANY_NAME_WITH_ID,
     CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
+    cr.reporting_date,
     cr.COMPANY_NAME,
     cr.CURRENT_ARR,
     cr.itnation_peer_group_active_partner,
@@ -1850,4 +1962,7 @@ group by
     "Current Monthly Total RMM",
     cmp_rmm,
     "Current Monthly Total",
-    cmp
+    cmp,
+    has_BMS_package,
+    has_CW_RMM,
+    MSB_FLAG
