@@ -317,6 +317,21 @@ old_prod_1_to_cwrmm as (
         pmp.PRE_MIGRATION_OLD_PROD_MRR,
         pmp.PRE_MIGRATION_OLD_PROD_ARR,
         pmp.PRE_MIGRATION_OLD_PROD_UNITS,
+        RMM_UNITS - coalesce(pmp.PRE_MIGRATION_OLD_PROD_UNITS, OLD_PROD_UNITS) as pre_mig_units_difference,
+        RMM_MRR - coalesce(pmp.PRE_MIGRATION_OLD_PROD_MRR, OLD_PROD_MRR) as pre_mig_mrr_difference,
+        case
+            when pre_mig_units_difference > 0
+            and pre_mig_mrr_difference > 0 then 'High Units High MRR'
+            when pre_mig_units_difference > 0
+            and pre_mig_mrr_difference < 0 then 'High Units Low MRR'
+            when pre_mig_units_difference < 0
+            and pre_mig_mrr_difference < 0 then 'Low Units Low MRR'
+            when pre_mig_units_difference < 0
+            and pre_mig_mrr_difference > 0 then 'Low Units High MRR'
+            when pre_mig_units_difference = 0
+            or pre_mig_mrr_difference = 0 then 'No Change'
+            else 'Others'
+        end as Change_type,
         PRE_MIG_MAX_OLD_PROD,
         NOC.NOC_DESKTOP_MRR,
         NOC.NOC_DESKTOP_UNITS,
@@ -492,6 +507,21 @@ old_prod_2_to_cwrmm as (
         pmp.PRE_MIGRATION_OLD_PROD_MRR,
         pmp.PRE_MIGRATION_OLD_PROD_ARR,
         pmp.PRE_MIGRATION_OLD_PROD_UNITS,
+        RMM_UNITS - coalesce(pmp.PRE_MIGRATION_OLD_PROD_UNITS, OLD_PROD_UNITS) as pre_mig_units_difference,
+        RMM_MRR - coalesce(pmp.PRE_MIGRATION_OLD_PROD_MRR, OLD_PROD_MRR) as pre_mig_mrr_difference,
+        case
+            when pre_mig_units_difference > 0
+            and pre_mig_mrr_difference > 0 then 'High Units High MRR'
+            when pre_mig_units_difference > 0
+            and pre_mig_mrr_difference < 0 then 'High Units Low MRR'
+            when pre_mig_units_difference < 0
+            and pre_mig_mrr_difference < 0 then 'Low Units Low MRR'
+            when pre_mig_units_difference < 0
+            and pre_mig_mrr_difference > 0 then 'Low Units High MRR'
+            when pre_mig_units_difference = 0
+            or pre_mig_mrr_difference = 0 then 'No Change'
+            else 'Others'
+        end as Change_type,
         PRE_MIG_MAX_OLD_PROD,
         NOC.NOC_DESKTOP_MRR,
         NOC.NOC_DESKTOP_UNITS,
@@ -506,21 +536,63 @@ old_prod_2_to_cwrmm as (
         and pre_migration_month_number_desc = 1
         left join NOC on NOC.COMPANY_ID = rmm.rmm_company_id
         and NOC.REPORTING_DATE = rmm.rmm_reporting_date
-) --  this is end of prod 2 ***********************************************************************************************************
+),
+--  this is end of prod 2 ***********************************************************************************************************
 -- **********************************************************************************************************************************
+------------------ collecting all past prods----------------------------------------------------------------------------------------
+collectprods as (
+    select
+        prd1.*,
+        MS."automate_status" as MIGRATION_STATUS,
+        current_date as run_date
+    from
+        old_prod_1_to_cwrmm prd1
+        left join "DATAIKU"."DEV_DATAIKU_WRITE"."CWRMM_MIGRATION_STATUS_MAPPING" MS on prd1.MIGRATION_CODE = MS."code"
+    union
+    all
+    select
+        prd2.*,
+        MS."command_status" as MIGRATION_STATUS,
+        current_date as run_date
+    from
+        old_prod_2_to_cwrmm prd2
+        left join "DATAIKU"."DEV_DATAIKU_WRITE"."CWRMM_MIGRATION_STATUS_MAPPING" MS on prd2.MIGRATION_CODE = MS."code"
+)
 select
-    prd1.*,
-    MS."automate_status" as MIGRATION_STATUS,
-    current_date as run_date
+    *,
+    row_number() over(
+        partition by COMPANY_ID
+        order by
+            OLD_PROD_REPORTING_DATE desc
+    ) as last_reporting_date,
+    case
+        when row_number() over(
+            partition by COMPANY_ID
+            order by
+                OLD_PROD_REPORTING_DATE desc
+        ) is null then 99999
+        else row_number() over(
+            partition by COMPANY_ID
+            order by
+                OLD_PROD_REPORTING_DATE desc
+        )
+    end as last_reporting_date_fill,
+    case
+        when MIGRATION_STATUS in (
+            'Churned Automate',
+            'Churned Command',
+            'In Ramp',
+            'Still with Automate',
+            'Still with Command'
+        ) then OLD_PROD_REPORTING_DATE
+        when MIGRATION_STATUS in (
+            'Churned RMM',
+            'Revert to Automate',
+            'Revert and Churn Automate',
+            'Revert and Churn Command',
+            'Revert to Command'
+        ) then coalesce(RMM_REPORTING_DATE, RMM_OTHERS_REPORTING_DATE)
+        when MIGRATION_STATUS in ('Migrated to RMM', 'In RMM Implementation') then coalesce(MIN_RMM_DATE, RMM_OTHERS_REPORTING_DATE)
+    end as REPORTING_DATE
 from
-    old_prod_1_to_cwrmm prd1
-    left join "DATAIKU"."PRD_DATAIKU_WRITE"."CWRMM_MIGRATION_STATUS_MAPPING" MS on prd1.MIGRATION_CODE = MS."code"
-union
-all
-select
-    prd2.*,
-    MS."command_status" as MIGRATION_STATUS,
-    current_date as run_date
-from
-    old_prod_2_to_cwrmm prd2
-    left join "DATAIKU"."PRD_DATAIKU_WRITE"."CWRMM_MIGRATION_STATUS_MAPPING" MS on prd2.MIGRATION_CODE = MS."code"
+    collectprods
