@@ -22,7 +22,9 @@ with base as (
         "Brand",
         seat_count."Include in Current ARR calculation",
         case
-            when seat_count."Include in Current ARR calculation" = 1 then 'Include in ARR calculation'
+            when seat_count."Include in Current ARR calculation" = 3 then 'Include in BMS/RMM ARR calculation'
+            when seat_count."Include in Current ARR calculation" = 2 then 'Include in RMM ARR calculation'
+            when seat_count."Include in Current ARR calculation" = 1 then 'Include in BMS ARR calculation'
             when seat_count."Include in Current ARR calculation" = 0 then 'Exclude from ARR Calculation'
             else null
         end as "Seat Type",
@@ -95,8 +97,8 @@ with base as (
         (SUM(billings_local * exch.exchange_rate) * 12) AS ARR_Unified,
         (SUM(UNITS)) AS UNITS,
         (SUM(BILLINGS_Including_Credit_Risk)) AS "BILLINGS INCLUDING CREDIT RISK",
-        (SUM(cast(MRR as int))) AS MRR -- casted MRR as Int
-,
+        (SUM(cast(MRR as int))) AS MRR,-- casted MRR as Int
+
         (SUM(Billings_local)) AS "BILLINGS LOCAL",
         (
             SUM(
@@ -127,7 +129,7 @@ with base as (
         and reporting_date = exch.DATE_EFFECTIVE
         LEFT JOIN ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__ACCOUNT a ON obt.COMPANY_ID = a.ID
         LEFT JOIN ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__USER u ON a.OWNER_ID = u.ID
-        LEFT outer JOIN DATAIKU.DEV_DATAIKU_STAGING.MANAGE_SEATCOUNT_ARR_STAGING seat_count -- merged manage seat count table
+        LEFT outer JOIN DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_MANAGE_SEATCOUNT_ARR seat_count -- merged manage seat count table
         on obt.ITEM_ID = seat_count."Product Code"
     WHERE
         1 = 1
@@ -168,14 +170,26 @@ with base as (
         sum(billings) > 0
 )
 select
+       distinct
     company_id,
     company_name,
-       COMPANY_NAME_WITH_ID,
-    reporting_date,
+    base.COMPANY_NAME_WITH_ID,
+    base.reporting_date,
     product,
     package,
     "Item Description",
-    item_id,
+    base.ITEM_ID,
+    iff(rmm."Command SKU ID" = base.ITEM_ID,"RMM SKU ID",null) as RMM_HD_Mapping,
+    "RMM Mapping",
+    iff(rmm."Command SKU ID" = base.ITEM_ID,"RMM Name",null) as RMM_HD_Description,
+    iff(NOC."Command SKU ID" = base.ITEM_ID,"NOC SKU ID",null) as NOC_SKU_Mapping,
+    "NOC Mapping",
+    iff(NOC."Command SKU ID" = base.ITEM_ID,"NOC Name",null) as NOC_Description,
+    iff("Item Description" in ('ConnectWise Command Servers Elite' , 'ConnectWise Command Servers Preferred'), 1, null) noc_flag,
+    iff(noc_flag = 1, UNITS,null)   as noc_units,
+    noc_price.UNIT_PRICE as NOC_List_Price,
+    rmm_price.UNIT_PRICE as HD_unit_price,
+    (MRR/nullifzero(UNITS)) as price_per_seat,
     "Brand",
     case
         when "Brand" = 'Manage' then 'Bus Mgmt'
@@ -202,5 +216,25 @@ select
     "Include in Current ARR calculation",
     billingslocalunified,
     key
+    essential_price_per_seat,
+    iff(base.ITEM_ID in ('CULCSAS100301ELITEB'), (price_per_seat-essential_price_per_seat), null) as noc_component_price, --Use Item_id instead of item description for iff statements
+    desktop_essential_price_per_seat,
+    iff("RMM Mapping" = 1, (price_per_seat-desktop_essential_price_per_seat), null) as HD_component_price,
+    (HD_component_price*units) as HD_total_monthly_future_price_by_sku,
+    (noc_units*noc_component_price) as noc_future_monthly_price,
+    (HD_total_monthly_future_price_by_sku*12) as HD_total_annual_future_price_by_sku,
+    (noc_future_monthly_price*12) as noc_future_annual_price
+
 from
     base
+        left join (select distinct * from DATAIKU.DEV_DATAIKU_WRITE.PNP_DASHBOARD_MANAGE_SEATCOUNT_RMM_MAPPING) rmm on base.ITEM_ID = rmm."Command SKU ID"
+        left join (select distinct * from DATAIKU.DEV_DATAIKU_WRITE.PNP_DASHBOARD_MANAGE_SEATCOUNT_NOC_MAPPING) NOC on base.ITEM_ID = NOC."Command SKU ID"
+        left join  fivetran.salesforce.pricebook_entry rmm_price on rmm_price.PRODUCT_CODE = base.ITEM_ID and reference_currency = rmm_price.CURRENCY_ISO_CODE and "RMM Mapping" = 1
+        left join  fivetran.salesforce.pricebook_entry noc_price on noc_price.PRODUCT_CODE = noc."NOC SKU ID" and reference_currency = noc_price.CURRENCY_ISO_CODE and "NOC Mapping" = 1
+        left join (select distinct COMPANY_NAME_WITH_ID, REPORTING_DATE, item_id,(MRR/nullifzero(UNITS)) as essential_price_per_seat
+                    from base
+                    where ITEM_ID in ('CULCSAS100101ESSENTB')) essential on essential.COMPANY_NAME_WITH_ID = base.COMPANY_NAME_WITH_ID and essential.REPORTING_DATE = base.REPORTING_DATE and base.ITEM_ID = 'CULCSAS100301ELITEB'
+
+        left join (select distinct COMPANY_NAME_WITH_ID, REPORTING_DATE,(MRR)/nullifzero(UNITS) as desktop_essential_price_per_seat
+                   from base
+                   where ITEM_ID in ('CULCSAS1004010101190')) desktop_essential on desktop_essential.COMPANY_NAME_WITH_ID = base.COMPANY_NAME_WITH_ID and desktop_essential.REPORTING_DATE = base.REPORTING_DATE and "RMM Mapping" = 1
