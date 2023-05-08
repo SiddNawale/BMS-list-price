@@ -16,7 +16,7 @@
 --                              --- CONTRACT_TYPE
 --                      -- DATAIKU.ENV.automate_and_manage_cal (A.H. combine it with this query )
 --                              --- Calculated Manage/Automate-specific quantities. E.g. PSA_LEGACY_ON_PREM
---                      -- DATAIKU.ENV.PNP_DASHBOARD_ARR_AND_BILLING_C
+--                      -- DATAIKU.ENV.PNP_DASHBOARD_ARR_AND_BILLING
 --                              --- current_monthly CTE, current_monthly_rmm CTE
 --                      --  DATAIKU.ENV.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING
 --                              --- Pricebook details for BMS (A.H. should unify it with RMM)
@@ -24,7 +24,7 @@
 --                              -- Pricebook details for RMM
 --                      --DATAIKU.PRD_DATAIKU_WRITE.REPORTING_DATE_LIMIT
 --                              -- Reporting date limit
--- Output       - DATAIKU.ENV.pnp_dashboard_migration_query_c
+-- Output       - DATAIKU.ENV.pnp_dashboard_migration_query
 --
 -- Steps
 --  base CTE, Intermediate 1 to 4: Pull Automate and Manage data to create Cloud/On Prem and Legacy flags
@@ -62,6 +62,9 @@
 --                      -- Bringing in pricebook numbers
 --                      -- Compute pricing & Packaging metrics for migration
 --                      -- Bringing in currency conversion rates
+--                      --has risk score, risk level, and risk to migrate logic
+--                      -- bms and rmm future monthly prices and monthly price increases
+--                      -- BMS Package and RMM flags are showing if they are already billed for BMS/CW RMM
 --
 --
 --
@@ -73,6 +76,10 @@
 --                      -- Unify definitions with other queries (SKP model, dashboard queries etc.)
 --                      -- Merge intermediate queries (e.g. Manage_Automate_calc query)
 --                      '🙈 nothing to see here' is not used anymore. It is replaced by "NA-dbt_value"
+--              - As of May, 2023
+--                      --merged intermediate queries (e.g. Manage_automate_calc query)
+--                      --'🙈 nothing to see here' has been replaced by "NA-dbt_value"
+--                      -- SKP Risk Score Logic has been added
 -------------------------------------------------------------------------------
 WITH arr_billings as (
     select
@@ -83,7 +90,7 @@ WITH arr_billings as (
             0
         ) as MSB_FLAG
     from
-        DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C
+        DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING
     where
         REPORTING_DATE = (
             select
@@ -1315,7 +1322,13 @@ current_monthly as (
                 "Seat Type" = 'Include in BMS ARR calculation'
                 or "Seat Type" is null
             ) then sum(BILLINGSLOCALUNIFIED)
-        end as cmp
+        end as cmp,
+        case
+            when product in ('Manage', 'Sell', 'BrightGauge', 'ItBoost')
+            and (
+                "Seat Type" = 'Exclude from ARR Calculation'
+            ) then sum(BILLINGSLOCALUNIFIED)
+        end as excluded_BMS
     from
         arr_billings arr --                  left join (
         --                  select
@@ -1337,7 +1350,8 @@ monthly_price_cmp as (
         COMPANY_ID,
         COMPANY_NAME_WITH_ID,
         sum("Current Monthly Total") as "Current Monthly Total",
-        sum(cmp) as cmp
+        sum(cmp) as cmp,
+        sum(excluded_BMS) as excluded_BMS
     from
         current_monthly
     group by
@@ -1352,12 +1366,14 @@ current_monthly_rmm as (
         "Seat Type",
         sum(BILLINGSLOCALUNIFIED) as "Current Monthly Total RMM",
         case
-            when product in ('Automate', 'Command', 'CW RMM')
+            when product in ('Automate', 'Command', 'Help Desk')
             and (
                 "Seat Type" = 'Include in RMM ARR calculation'
                 or "Seat Type" is null
             ) then sum(BILLINGSLOCALUNIFIED)
-        end as cmp_rmm
+        end as cmp_rmm,
+        sum(HD_total_monthly_future_price_by_sku) as HD_total_monthly_future_price_by_sku,
+        sum(noc_future_monthly_price) as noc_future_monthly_price
     from
         arr_billings arr --         left join (
         --             select
@@ -1367,7 +1383,7 @@ current_monthly_rmm as (
         --                 DATAIKU.DEV_DATAIKU_STAGING.PNP_COMPANY_DIM
         --         ) c on c.COMPANY_ID = ARR.COMPANY_ID
     where
-        product in ('Automate', 'Command', 'CW RMM')
+        product in ('Automate', 'Command', 'Help Desk')
     group by
         1,
         2,
@@ -1379,7 +1395,9 @@ monthly_price_cmp_rmm as (
         COMPANY_ID,
         COMPANY_NAME_WITH_ID,
         sum("Current Monthly Total RMM") as "Current Monthly Total RMM",
-        sum(cmp_rmm) as cmp_rmm
+        sum(cmp_rmm) as cmp_rmm,
+        sum(HD_total_monthly_future_price_by_sku) as HD_total_monthly_future_price_by_sku,
+        sum(noc_future_monthly_price) as noc_future_monthly_price
     from
         current_monthly_rmm
     group by
@@ -1439,530 +1457,970 @@ customer_tenure AS (
     GROUP BY
         1,
         2
-) -----------------------------------------------------------------
+),
+-----------------------------------------------------------------
 -----------------------------------------------------------------
 -- Final table
 -----------------------------------------------------------------
 -----------------------------------------------------------------
-SELECT
-    distinct --removed duplicates
-    -----------------------------------------------------------------
-    -- From customer_roster
-    -- Customer ID
-    cr.COMPANY_ID,
-    cr.COMPANY_NAME,
-    cr.COMPANY_NAME_WITH_ID,
-    CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
-    cr.reporting_date,
-    -- Current ARR
-    cr.CURRENT_ARR,
-    cr.itnation_peer_group_active_partner,
-    cr.manage_active_partner,
-    cr.control_active_partner,
-    cr.automate_active_partner,
-    cr.sell_active_partner,
-    cr.fortify_active_partner,
-    cr.command_active_partner,
-    cr.brightgauge_active_partner,
-    cr.recover_active_partner,
-    cr.help_desk_active_partner,
-    cr.security_active_partner,
-    cr.itboost_active_partner,
-    cr.webroot_active_partner,
-    cr.Automate_Units,
-    cr.COMMAND_DESKTOP_UNITS,
-    cr.COMMAND_NETWORK_UNITS,
-    cr.COMMAND_SERVER_UNITS,
-    cr.HELP_DESK_UNITS,
-    cr.SECURITY_UNITS,
-    (cr.SELL_ARR) AS SELL_ARR,
-    (cr.BRIGHTGAUGE_ARR) AS BRIGHTGAUGE_ARR,
-    (cr.ITBOOST_ARR) AS ITBOOST_ARR,
-    (cr.RMM_ADDITIONAL_ARR) AS RMM_ADDITIONAL_ARR,
-    (cr.HELP_DESK_ARR) AS HELP_DESK_ARR,
-    (cr.SECURITY_ARR) AS SECURITY_ARR,
-    (cr.OTHER_ARR) AS OTHER_ARR,
-    (cr.COMMAND_ARR) AS COMMAND_ARR,
-    cr.SELL_CLOUD,
-    cr.SELL_LEGACY_ON_PREM,
-    cr.SELL_ON_PREM,
-    cr.BRIGHTGAUGE_CLOUD,
-    cr.BRIGHTGAUGE_LEGACY_ON_PREM,
-    cr.BRIGHTGAUGE_ON_PREM,
-    cr.ITBOOST_CLOUD,
-    cr.ITBOOST_LEGACY_ON_PREM,
-    cr.ITBOOST_ON_PREM,
-    cr.HELP_DESK_CLOUD,
-    cr.HELP_DESK_LEGACY_ON_PREM,
-    cr.HELP_DESK_ON_PREM,
-    cr.SECURITY_CLOUD,
-    cr.SECURITY_LEGACY_ON_PREM,
-    cr.SECURITY_ON_PREM,
-    cr.OTHER_CLOUD,
-    cr.OTHER_LEGACY_ON_PREM,
-    cr.OTHER_ON_PREM,
-    cr.THIRD_PARTY_MRR,
-    cr.WEBROOT_MRR,
-    cr.WEBROOT_UNITS,
-    cr.WEBROOT_OVERAGE_MRR,
-    cr.WEBROOT_OVERAGE_UNITS,
-    -----------------------------------------------------------------
-    -- From customer_healthscores
-    cast(chs.HEALTHSCORE as string) as HEALTHSCORE,
-    --converted healthscore to string
-    chs.HEALTHSCORE_ALPHA,
-    iff(HEALTHSCORE_ALPHA = '0', 1, 0) as "Gainsight Score Available",
-    concat(HEALTHSCORE_ALPHA, '-', HEALTHSCORE) as "Health Score Grade",
-    -----------------------------------------------------------------
-    -- From customer_touch_tier
-    COALESCE(
-        ctt.TOUCH_TIER,
-        'Tech Touch (due to non-qualifying MRR)'
-    ) AS TOUCH_TIER,
-    case
-        when TOUCH_TIER <> '0' then TOUCH_TIER
-        when TOUCH_TIER = '0' then 'None'
-        else null
-    end as "Deal Value",
-    -----------------------------------------------------------------
-    -- From customer_contract_type
-    cct.CONTRACT_TYPE,
-    ------------------------------------------------------------------
-    -- From customer tenure
-    ct.CORPORATE_START_DATE,
-    ct.CORPORATE_TENURE,
-    ct.PSA_START_DATE,
-    ct.PSA_TENURE,
-    ct.RMM_START_DATE,
-    ct.RMM_TENURE,
-    ct.SECURITY_START_DATE,
-    ct.SECURITY_TENURE,
-    -----------------------------------------------------------------
-    -- From customer_psa_package
-    cpp.PSA_PACKAGE,
-    -----------------------------------------------------------------
-    -- From contract
-    c.CONTRACT_NUMBER,
-    c.Earliest_Date,
-    c.Products,
-    -----------------------------------------------------------------
-    -- from automate_and_manage_cal table (amc)
-    -- start of expanded columns and removed amc.company_id, manage category, and automate category
-    iff(
-        PSA_LEGACY_ON_PREM is null,
-        0,
-        PSA_LEGACY_ON_PREM
-    ) as PSA_LEGACY_ON_PREM,
-    iff(PSA_ON_PREM is null, 0, PSA_ON_PREM) as PSA_ON_PREM,
-    iff(PSA_CLOUD is null, 0, PSA_CLOUD) as PSA_CLOUD,
-    AUTOMATE_LEGACY_ON_PREM as RMM_LEGACY_ON_PREM,
-    -- changed name to rmm legacy on prem
-    AUTOMATE_LEGACY_ON_PREM,
-    AUTOMATE_ON_PREM as RMM_ON_PREM,
-    -- changed name to rmm on prem,
-    AUTOMATE_ON_PREM,
-    AUTOMATE_CLOUD as RMM_CLOUD,
-    --Changed name to rmm cloud
-    AUTOMATE_CLOUD,
-    iff(PSA_ARR is null, 0, PSA_ARR) as PSA_ARR,
-    AUTOMATE_ARR,
-    iff(PSA_UNITS is null, 0, PSA_UNITS) as PSA_UNITS,
-    -- AUTOMATE_UNITS, -- getting it difrectly from here now
-    iff(PSA_ON_PREM_ARR is null, 0, PSA_ON_PREM_ARR) as PSA_ON_PREM_ARR,
-    iff(PSA_CLOUD_ARR is null, 0, PSA_CLOUD_ARR) as PSA_CLOUD_ARR,
-    iff(
-        PSA_LEGACY_ON_PREM_ARR is null,
-        0,
-        PSA_LEGACY_ON_PREM_ARR
-    ) as PSA_LEGACY_ON_PREM_ARR,
-    cast(
-        iff(PSA_ON_PREM_UNITS is null, 0, PSA_ON_PREM_UNITS) as int
-    ) as PSA_ON_PREM_UNITS,
-    iff(PSA_CLOUD_UNITS is null, 0, PSA_CLOUD_UNITS) as PSA_CLOUD_UNITS,
-    cast(
+final_table as (
+    SELECT
+        distinct --removed duplicates
+        -----------------------------------------------------------------
+        -- From customer_roster
+        -- Customer ID
+        cr.COMPANY_ID,
+        cr.COMPANY_NAME,
+        cr.COMPANY_NAME_WITH_ID,
+        CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
+        cr.reporting_date,
+        -- Current ARR
+        cr.CURRENT_ARR,
+        cr.itnation_peer_group_active_partner,
+        cr.manage_active_partner,
+        cr.control_active_partner,
+        cr.automate_active_partner,
+        cr.sell_active_partner,
+        cr.fortify_active_partner,
+        cr.command_active_partner,
+        cr.brightgauge_active_partner,
+        cr.recover_active_partner,
+        cr.help_desk_active_partner,
+        cr.security_active_partner,
+        cr.itboost_active_partner,
+        cr.webroot_active_partner,
+        cr.Automate_Units,
+        cr.COMMAND_DESKTOP_UNITS,
+        cr.COMMAND_NETWORK_UNITS,
+        cr.COMMAND_SERVER_UNITS,
+        cr.HELP_DESK_UNITS,
+        cr.SECURITY_UNITS,
+        (cr.SELL_ARR) AS SELL_ARR,
+        (cr.BRIGHTGAUGE_ARR) AS BRIGHTGAUGE_ARR,
+        (cr.ITBOOST_ARR) AS ITBOOST_ARR,
+        (cr.RMM_ADDITIONAL_ARR) AS RMM_ADDITIONAL_ARR,
+        (cr.HELP_DESK_ARR) AS HELP_DESK_ARR,
+        (cr.SECURITY_ARR) AS SECURITY_ARR,
+        (cr.OTHER_ARR) AS OTHER_ARR,
+        (cr.COMMAND_ARR) AS COMMAND_ARR,
+        cr.SELL_CLOUD,
+        cr.SELL_LEGACY_ON_PREM,
+        cr.SELL_ON_PREM,
+        cr.BRIGHTGAUGE_CLOUD,
+        cr.BRIGHTGAUGE_LEGACY_ON_PREM,
+        cr.BRIGHTGAUGE_ON_PREM,
+        cr.ITBOOST_CLOUD,
+        cr.ITBOOST_LEGACY_ON_PREM,
+        cr.ITBOOST_ON_PREM,
+        cr.HELP_DESK_CLOUD,
+        cr.HELP_DESK_LEGACY_ON_PREM,
+        cr.HELP_DESK_ON_PREM,
+        cr.SECURITY_CLOUD,
+        cr.SECURITY_LEGACY_ON_PREM,
+        cr.SECURITY_ON_PREM,
+        cr.OTHER_CLOUD,
+        cr.OTHER_LEGACY_ON_PREM,
+        cr.OTHER_ON_PREM,
+        cr.THIRD_PARTY_MRR,
+        cr.WEBROOT_MRR,
+        cr.WEBROOT_UNITS,
+        cr.WEBROOT_OVERAGE_MRR,
+        cr.WEBROOT_OVERAGE_UNITS,
+        -----------------------------------------------------------------
+        -- From customer_healthscores
+        cast(chs.HEALTHSCORE as string) as HEALTHSCORE,
+        --converted healthscore to string
+        chs.HEALTHSCORE_ALPHA,
+        iff(HEALTHSCORE_ALPHA = '0', 1, 0) as "Gainsight Score Available",
+        concat(HEALTHSCORE_ALPHA, '-', HEALTHSCORE) as "Health Score Grade",
+        -----------------------------------------------------------------
+        -- From customer_touch_tier
+        COALESCE(
+            ctt.TOUCH_TIER,
+            'Tech Touch (due to non-qualifying MRR)'
+        ) AS TOUCH_TIER,
+        case
+            when TOUCH_TIER <> '0' then TOUCH_TIER
+            when TOUCH_TIER = '0' then 'None'
+            else null
+        end as "Deal Value",
+        -----------------------------------------------------------------
+        -- From customer_contract_type
+        cct.CONTRACT_TYPE,
+        ------------------------------------------------------------------
+        -- From customer tenure
+        ct.CORPORATE_START_DATE,
+        ct.CORPORATE_TENURE,
+        ct.PSA_START_DATE,
+        ct.PSA_TENURE,
+        ct.RMM_START_DATE,
+        ct.RMM_TENURE,
+        ct.SECURITY_START_DATE,
+        ct.SECURITY_TENURE,
+        -----------------------------------------------------------------
+        -- From customer_psa_package
+        cpp.PSA_PACKAGE,
+        -----------------------------------------------------------------
+        -- From contract
+        c.CONTRACT_NUMBER,
+        c.Earliest_Date,
+        c.Products,
+        -----------------------------------------------------------------
+        -- from automate_and_manage_cal table (amc)
+        -- start of expanded columns and removed amc.company_id, manage category, and automate category
+
         iff(
-            PSA_LEGACY_ON_PREM_UNITS is null,
+            PSA_LEGACY_ON_PREM is null,
             0,
-            PSA_LEGACY_ON_PREM_UNITS
-        ) as int
-    ) as PSA_LEGACY_ON_PREM_UNITS,
-    iff(
-        AUTOMATE_CLOUD_ARR is null,
-        0,
-        AUTOMATE_CLOUD_ARR
-    ) as AUTOMATE_CLOUD_ARR,
-    iff(
-        AUTOMATE_ON_PREM_ARR is null,
-        0,
-        AUTOMATE_ON_PREM_ARR
-    ) as AUTOMATE_ON_PREM_ARR,
-    iff(
-        AUTOMATE_LEGACY_ON_PREM_ARR is null,
-        0,
-        AUTOMATE_LEGACY_ON_PREM_ARR
-    ) as AUTOMATE_LEGACY_ON_PREM_ARR,
-    iff(
-        AUTOMATE_CLOUD_UNITS is null,
-        0,
-        AUTOMATE_CLOUD_UNITS
-    ) as AUTOMATE_CLOUD_UNITS,
-    iff(
-        AUTOMATE_ON_PREM_UNITS is null,
-        0,
-        AUTOMATE_ON_PREM_UNITS
-    ) as AUTOMATE_ON_PREM_UNITS,
-    cast(
+            PSA_LEGACY_ON_PREM
+        ) as PSA_LEGACY_ON_PREM,
+        iff(PSA_ON_PREM is null, 0, PSA_ON_PREM) as PSA_ON_PREM,
+        iff(PSA_CLOUD is null, 0, PSA_CLOUD) as PSA_CLOUD,
+        AUTOMATE_LEGACY_ON_PREM as RMM_LEGACY_ON_PREM,
+        -- changed name to rmm legacy on prem
+        AUTOMATE_LEGACY_ON_PREM,
+        AUTOMATE_ON_PREM as RMM_ON_PREM,
+        -- changed name to rmm on prem,
+        AUTOMATE_ON_PREM,
+        AUTOMATE_CLOUD as RMM_CLOUD,
+        --Changed name to rmm cloud
+        AUTOMATE_CLOUD,
+        iff(PSA_ARR is null, 0, PSA_ARR) as PSA_ARR,
+        AUTOMATE_ARR,
+        iff(PSA_UNITS is null, 0, PSA_UNITS) as PSA_UNITS,
+        -- AUTOMATE_UNITS, -- getting it difrectly from here now
+        iff(PSA_ON_PREM_ARR is null, 0, PSA_ON_PREM_ARR) as PSA_ON_PREM_ARR,
+        iff(PSA_CLOUD_ARR is null, 0, PSA_CLOUD_ARR) as PSA_CLOUD_ARR,
         iff(
-            AUTOMATE_LEGACY_ON_PREM_UNITS is null,
+            PSA_LEGACY_ON_PREM_ARR is null,
             0,
-            AUTOMATE_LEGACY_ON_PREM_UNITS
-        ) as int
-    ) as AUTOMATE_LEGACY_ON_PREM_UNITS,
-    -----------------------------------------------------------------
-    -- hybrid flag
-    case
-        when PSA_ON_PREM = 1 then 1
-        when SELL_ON_PREM = 1 then 1
-        when BRIGHTGAUGE_ON_PREM = 1 then 1
-        when ITBOOST_ON_PREM = 1 then 1
-        when RMM_ON_PREM = 1 then 1
-        when SECURITY_ON_PREM = 1 then 1
-        when OTHER_ON_PREM = 1 then 1
-        else 0
-    end as hybrid_flag,
-    -----------------------------------------------------------------
-    --on prem flag
-    case
-        when PSA_LEGACY_ON_PREM = 1 then 1
-        when SELL_LEGACY_ON_PREM = 1 then 1
-        when BRIGHTGAUGE_LEGACY_ON_PREM = 1 then 1
-        when ITBOOST_LEGACY_ON_PREM = 1 then 1
-        when HELP_DESK_LEGACY_ON_PREM = 1 then 1
-        when SECURITY_LEGACY_ON_PREM = 1 then 1
-        when OTHER_LEGACY_ON_PREM = 1 then 1
-        else 0
-    end as "On-Prem Flag",
-    (hybrid_flag + "On-Prem Flag") as "On-Prem/Hybrid",
-    case
-        when HEALTHSCORE_ALPHA = 'A' then 'A-B'
-        when HEALTHSCORE_ALPHA = 'B' then 'A-B'
-        when HEALTHSCORE_ALPHA = 'C' then 'C'
-        when HEALTHSCORE_ALPHA = 'D' then 'D-F'
-        when HEALTHSCORE_ALPHA = 'F' then 'F'
-        else 'None'
-    end as "Gainsight Risk",
-    IFF(
-        itnation_peer_group_active_partner = 1,
-        'Active Member',
-        'No'
-    ) as "IT Nation",
-    -------------------------------------------------------------
-    -- RMM package assignment
-    -------------------------------------------------------------
-    (AUTOMATE_ARR + cr.COMMAND_ARR) as RMM_ARR,
-    iff(
-        automate_active_partner > 0,
-        'Essentials WO RPP',
+            PSA_LEGACY_ON_PREM_ARR
+        ) as PSA_LEGACY_ON_PREM_ARR,
+        cast(
+            iff(PSA_ON_PREM_UNITS is null, 0, PSA_ON_PREM_UNITS) as int
+        ) as PSA_ON_PREM_UNITS,
+        iff(PSA_CLOUD_UNITS is null, 0, PSA_CLOUD_UNITS) as PSA_CLOUD_UNITS,
+        cast(
+            iff(
+                PSA_LEGACY_ON_PREM_UNITS is null,
+                0,
+                PSA_LEGACY_ON_PREM_UNITS
+            ) as int
+        ) as PSA_LEGACY_ON_PREM_UNITS,
         iff(
-            command_active_partner > 0,
-            'Pro W EPP',
-            'Undefined'
-        )
-    ) as future_RMM,
-    ------------
-    -- Old logic
-    -- case
-    --     when automate_active_partner > 0
-    --         and webroot_active_partner > 0
-    --         and brightgauge_active_partner = 0 then 'CW-RMM-EPB-STANDARD'
-    --     when automate_active_partner > 0
-    --         and webroot_active_partner > 0
-    --         and brightgauge_active_partner > 0 then 'CW-RMM--ADVANCED-EPP'
-    --     when automate_active_partner > 0
-    --         and webroot_active_partner = 0
-    --         and brightgauge_active_partner = 0 then 'CWRMMEPBSTND-W-O-EPP'
-    --     when automate_active_partner > 0
-    --         and webroot_active_partner = 0
-    --         and brightgauge_active_partner > 0 then 'CW-RMM-ADV-WOUT-EPP'
-    --     else 'None'
-    --     end                                          as          "RMM Package",
-    -----------------------------
-    -- Place holder so PBI reloads
-    'NA' as "RMM Package",
-    0 as AUTOMATE_UNITS_CALC,
-    iff(cr.AUTOMATE_UNITS > 0, 0, 0) as AUTOMATE_UNITS_CALC,
-    -- Old logic :
-    -- iff(
-    --         command_active_partner = 1,
-    --         (
-    --                 COMMAND_DESKTOP_UNITS + COMMAND_SERVER_UNITS + HELP_DESK_UNITS
-    --         ),
-    --         0
-    -- ) as RMM_Units_Additive,
-    0 as RMM_Units_Additive,
-    -- (
-    --         COMMAND_DESKTOP_UNITS + COMMAND_NETWORK_UNITS + COMMAND_SERVER_UNITS + AUTOMATE_UNITS
-    -- ) as RMM_UNITS,
-    iff(
-        automate_active_partner > 0,
-        cr.AUTOMATE_UNITS,
+            AUTOMATE_CLOUD_ARR is null,
+            0,
+            AUTOMATE_CLOUD_ARR
+        ) as AUTOMATE_CLOUD_ARR,
         iff(
-            command_active_partner > 0,
-            COMMAND_TOTAL_UNITS,
-            null
-        )
-    ) as RMM_UNITS,
-    -----------------
-    -- case
-    --         when future_RMM = 'Pro W EPP' then cast(min(rmmpb."CW-RMM-ADV-WOUT-EPP") as float)
-    --         when future_RMM = 'Essentials WO RPP' then cast(min(rmmpb."CW-RMM-EPB-STANDARD") as float)
-    --         when future_RMM = 'Undefined' then cast(min(rmmpb."CW-RMM--ADVANCED-EPP") as float)
-    -- end as Price_Per_Seat_RMM,
-    case
-        when automate_active_partner > 0 then cast(min(rmmpb."CW-RMM-EPB-STANDARD") as float)
-        when command_active_partner > 0 then cast(min(rmmpb."CW-RMM--ADVANCED-EPP") as float)
-        else null
-    end as Price_Per_Seat_RMM,
-    -----------------
-    -- case
-    --         when future_RMM = 'Pro W EPP' then cast(max(rmmpb."CW-RMM-ADV-WOUT-EPP") as float)
-    --         when future_RMM = 'Essentials WO RPP' then cast(max(rmmpb."CW-RMM-EPB-STANDARD") as float)
-    --         when future_RMM = 'Undefined' then cast(max(rmmpb."CW-RMM--ADVANCED-EPP") as float)
-    -- end as List_Price_RMM,
-    case
-        when automate_active_partner > 0 then cast(max(rmmpb."CW-RMM-EPB-STANDARD") as float)
-        when command_active_partner > 0 then cast(max(rmmpb."CW-RMM--ADVANCED-EPP") as float)
-    end as List_Price_RMM,
-    -----------------------
-    (RMM_UNITS * Price_Per_Seat_RMM) as "Future Monthly Price RMM",
-    "Current Monthly Total RMM",
-    cmp_rmm,
-    ("Future Monthly Price RMM" - cmp_rmm) / nullifzero(cmp_rmm) "Monthly Price Increase RMM %",
-    -- A.H. : Needs to be updated :
-    -- case
-    --         when (
-    --                 RMM_UNITS + RMM_Units_Additive + AUTOMATE_LEGACY_ON_PREM_UNITS
-    --         ) = 0 then null
-    --         when (
-    --                 command_active_partner = 1
-    --                 and automate_active_partner = 1
-    --         ) then RMM_UNITS
-    --         when (
-    --                 command_active_partner = 1
-    --                 and automate_active_partner = 0
-    --         ) then RMM_Units_Additive
-    --         when (
-    --                 command_active_partner = 0
-    --                 and automate_active_partner = 1
-    --         ) then RMM_UNITS
-    --         else 0
-    -- end as "Total RMM Units",
-    -------------------------------------------------------------
-    -- PSA package assignment
-    -------------------------------------------------------------
-    -- PSA_PACKAGE, A.H. : Duplicate column?
-    case
-        when PSA_PACKAGE = 'Premium' then 'Best'
-        when PSA_PACKAGE = 'Legacy | Premium' then 'Best'
-        when PSA_PACKAGE = 'Premium | Standard' then 'Best'
-        when PSA_PACKAGE = 'Basic | Legacy | Standard' then 'Best'
-        when PSA_PACKAGE = 'Legacy' then 'Better'
-        when PSA_PACKAGE = 'Standard' then 'Better'
-        when PSA_PACKAGE = 'Legacy | Standard' then 'Better'
-        when PSA_PACKAGE = 'Basic' then 'Good'
-        when PSA_PACKAGE = 'Basic | Legacy' then 'Good'
-        when PSA_PACKAGE = 'Basic | Standard' then 'Good'
-        when PSA_PACKAGE is null then null
-    end as Legacy,
-    case
-        when SELL_ACTIVE_PARTNER > 0 then 'Best'
-        when BRIGHTGAUGE_ACTIVE_PARTNER = 0
-        and Legacy is not null then Legacy
-        when MANAGE_ACTIVE_PARTNER > 0
-        and BRIGHTGAUGE_ACTIVE_PARTNER > 0 then 'Better'
-        else 'None'
-    end as "PSA Package Active Use FINAL",
-    case
-        when "PSA Package Active Use FINAL" = 'Better' then 'Bus Mgmt Standard'
-        when "PSA Package Active Use FINAL" = 'Best' then 'Bus Mgmt Advanced'
-        when "PSA Package Active Use FINAL" = 'Good' then 'Bus Mgmt Core'
-        else null
-    end as Future,
-    --                     MSB_FLAG,
-    case
-        when Future = 'Bus Mgmt Advanced' then max(pb."Best")
-        when Future = 'Bus Mgmt Standard' then max(pb."Better")
-        when Future = 'Bus Mgmt Core' then max(pb."Good")
-        else null
-    end as "List Price",
-    case
-        when "PSA Package Active Use FINAL" = 'Better' then min(pb."Better")
-        when "PSA Package Active Use FINAL" = 'Best' then min(pb."Best")
-        when "PSA Package Active Use FINAL" = 'Good' then min(pb."Good")
-        ELSE 0
-    end as "Bus Mgmt Future Price Per Seat",
-    (PSA_UNITS * "Bus Mgmt Future Price Per Seat") as "Future Monthly Price",
-    "Current Monthly Total",
-    cmp,
-    ("Future Monthly Price" - cmp) / nullifzero(cmp) "Monthly Price Increase %",
-    --------------------------------------------------------
-    --Pricebook details (A.H. needs checking)
-    max(pb.LOWERBOUND) as max_lowerbound,
-    max(rmmpb.lowerbound) as max_lowerbound_rmm,
-    max(REFERENCE_CURRENCY) as REFERENCE_CURRENCY,
-    has_BMS_package,
-    has_CW_RMM,
-    MSB_FLAG
-FROM
-    customer_roster cr
-    LEFT JOIN contract c ON c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
-    LEFT JOIN customer_healthscores chs ON chs.COMPANY_ID = cr.COMPANY_ID
-    LEFT JOIN customer_touch_tier ctt ON ctt.APPLIED_DATE = cr.REPORTING_DATE
-    AND ctt.SHIP_TO = cr.COMPANY_ID
-    LEFT JOIN customer_contract_type cct ON cct.APPLIED_DATE = cr.REPORTING_DATE
-    AND cct.SHIP_TO = cr.COMPANY_ID
-    LEFT JOIN customer_psa_package cpp ON cpp.COMPANY_ID = cr.COMPANY_ID
-    LEFT JOIN customer_tenure ct ON ct.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
-    LEFT JOIN automate_manage_calc amc on amc.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID --merged queries
-    left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING_C arr_c on arr_c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
-    left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK_STAGING pb on pb.CUR = REFERENCE_CURRENCY
-    and pb.LOWERBOUND <= PSA_UNITS
-    left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_RMM_PRICEBOOK_STAGING rmmpb on rmmpb.CUR = REFERENCE_CURRENCY
-    and rmmpb.LOWERBOUND <= (
-        --COMMAND_SERVER_UNITS + COMMAND_NETWORK_UNITS + COMMAND_DESKTOP_UNITS + cr.AUTOMATE_UNITS +
+            AUTOMATE_ON_PREM_ARR is null,
+            0,
+            AUTOMATE_ON_PREM_ARR
+        ) as AUTOMATE_ON_PREM_ARR,
+        iff(
+            AUTOMATE_LEGACY_ON_PREM_ARR is null,
+            0,
+            AUTOMATE_LEGACY_ON_PREM_ARR
+        ) as AUTOMATE_LEGACY_ON_PREM_ARR,
+        iff(
+            AUTOMATE_CLOUD_UNITS is null,
+            0,
+            AUTOMATE_CLOUD_UNITS
+        ) as AUTOMATE_CLOUD_UNITS,
+        iff(
+            AUTOMATE_ON_PREM_UNITS is null,
+            0,
+            AUTOMATE_ON_PREM_UNITS
+        ) as AUTOMATE_ON_PREM_UNITS,
+        cast(
+            iff(
+                AUTOMATE_LEGACY_ON_PREM_UNITS is null,
+                0,
+                AUTOMATE_LEGACY_ON_PREM_UNITS
+            ) as int
+        ) as AUTOMATE_LEGACY_ON_PREM_UNITS,
+        -----------------------------------------------------------------
+        -- hybrid flag
+        case
+            when PSA_ON_PREM = 1 then 1
+            when SELL_ON_PREM = 1 then 1
+            when BRIGHTGAUGE_ON_PREM = 1 then 1
+            when ITBOOST_ON_PREM = 1 then 1
+            when RMM_ON_PREM = 1 then 1
+            when SECURITY_ON_PREM = 1 then 1
+            when OTHER_ON_PREM = 1 then 1
+            else 0
+        end as hybrid_flag,
+        -----------------------------------------------------------------
+        --on prem flag
+        case
+            when PSA_LEGACY_ON_PREM = 1 then 1
+            when SELL_LEGACY_ON_PREM = 1 then 1
+            when BRIGHTGAUGE_LEGACY_ON_PREM = 1 then 1
+            when ITBOOST_LEGACY_ON_PREM = 1 then 1
+            when HELP_DESK_LEGACY_ON_PREM = 1 then 1
+            when SECURITY_LEGACY_ON_PREM = 1 then 1
+            when OTHER_LEGACY_ON_PREM = 1 then 1
+            else 0
+        end as "On-Prem Flag",
+        (hybrid_flag + "On-Prem Flag") as "On-Prem/Hybrid",
+        case
+            when HEALTHSCORE_ALPHA = 'A' then 'A-B'
+            when HEALTHSCORE_ALPHA = 'B' then 'A-B'
+            when HEALTHSCORE_ALPHA = 'C' then 'C'
+            when HEALTHSCORE_ALPHA = 'D' then 'D-F'
+            when HEALTHSCORE_ALPHA = 'F' then 'F'
+            else 'None'
+        end as "Gainsight Risk",
+        IFF(
+            itnation_peer_group_active_partner = 1,
+            'Active Member',
+            'No'
+        ) as "IT Nation",
+        -------------------------------------------------------------
+        -- RMM package assignment
+        -------------------------------------------------------------
+        (AUTOMATE_ARR + cr.COMMAND_ARR) as RMM_ARR,
+        iff(
+            automate_active_partner > 0,
+            'Essentials WO RPP',
+            iff(
+                command_active_partner > 0,
+                'CW RMM Pro',
+                'Undefined'
+            )
+        ) as future_RMM,
+        ------------
+        -- Old logic
+        -- case
+        --     when automate_active_partner > 0
+        --         and webroot_active_partner > 0
+        --         and brightgauge_active_partner = 0 then 'CW-RMM-EPB-STANDARD'
+        --     when automate_active_partner > 0
+        --         and webroot_active_partner > 0
+        --         and brightgauge_active_partner > 0 then 'CW-RMM--ADVANCED-EPP'
+        --     when automate_active_partner > 0
+        --         and webroot_active_partner = 0
+        --         and brightgauge_active_partner = 0 then 'CWRMMEPBSTND-W-O-EPP'
+        --     when automate_active_partner > 0
+        --         and webroot_active_partner = 0
+        --         and brightgauge_active_partner > 0 then 'CW-RMM-ADV-WOUT-EPP'
+        --     else 'None'
+        --     end                                          as          "RMM Package",
+        -----------------------------
+        -- Place holder so PBI reloads
+        'NA' as "RMM Package",
+        0 as AUTOMATE_UNITS_CALC,
+        iff(cr.AUTOMATE_UNITS > 0, 0, 0) as AUTOMATE_UNITS_CALC,
+        -- Old logic :
+        -- iff(
+        --         command_active_partner = 1,
+        --         (
+        --                 COMMAND_DESKTOP_UNITS + COMMAND_SERVER_UNITS + HELP_DESK_UNITS
+        --         ),
+        --         0
+        -- ) as RMM_Units_Additive,
+        0 as RMM_Units_Additive,
+        -- (
+        --         COMMAND_DESKTOP_UNITS + COMMAND_NETWORK_UNITS + COMMAND_SERVER_UNITS + AUTOMATE_UNITS
+        -- ) as RMM_UNITS,
         iff(
             automate_active_partner > 0,
             cr.AUTOMATE_UNITS,
             iff(
                 command_active_partner > 0,
                 COMMAND_TOTAL_UNITS,
-                0
+                null
+            )
+        ) as RMM_UNITS,
+        -----------------
+        -- case
+        --         when future_RMM = 'CW RMM Pro' then cast(min(rmmpb."CW-RMM-ADV-WOUT-EPP") as float)
+        --         when future_RMM = 'Essentials WO RPP' then cast(min(rmmpb."CW-RMM-EPB-STANDARD") as float)
+        --         when future_RMM = 'Undefined' then cast(min(rmmpb."CW-RMM--ADVANCED-EPP") as float)
+        -- end as Price_Per_Seat_RMM,
+        case
+            when automate_active_partner > 0 then cast(min(rmmpb."ConnectWise RMM Essentials") as float)
+            when command_active_partner > 0 then cast(min(rmmpb."ConnectWise RMM Pro") as float)
+            else null
+        end as Price_Per_Seat_RMM,
+        -----------------
+        -- case
+        --         when future_RMM = 'CW RMM Pro' then cast(max(rmmpb."CW-RMM-ADV-WOUT-EPP") as float)
+        --         when future_RMM = 'Essentials WO RPP' then cast(max(rmmpb."CW-RMM-EPB-STANDARD") as float)
+        --         when future_RMM = 'Undefined' then cast(max(rmmpb."CW-RMM--ADVANCED-EPP") as float)
+        -- end as List_Price_RMM,
+        case
+            when automate_active_partner > 0 then cast(max(rmmpb."ConnectWise RMM Essentials") as float)
+            when command_active_partner > 0 then cast(max(rmmpb."ConnectWise RMM Pro") as float)
+        end as List_Price_RMM,
+        -----------------------
+        (RMM_UNITS * Price_Per_Seat_RMM) as "Future Monthly Price RMM",
+        "Current Monthly Total RMM",
+        cmp_rmm,
+        monthly_price_cmp_rmm.noc_future_monthly_price,
+        monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku,
+        ("Future Monthly Price RMM" - cmp_rmm) / nullifzero(cmp_rmm) "Monthly Software Price Increase RMM %",
+        monthly_price_cmp_rmm.noc_future_monthly_price + monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku + "Future Monthly Price RMM" as future_monthly_total_RMM,
+        (
+            monthly_price_cmp_rmm.noc_future_monthly_price + monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku + "Future Monthly Price RMM" - "Current Monthly Total RMM"
+        ) /("Current Monthly Total RMM") as "Total Monthly Price Increase RMM %",
+        -- A.H. : Needs to be updated :
+        -- case
+        --         when (
+        --                 RMM_UNITS + RMM_Units_Additive + AUTOMATE_LEGACY_ON_PREM_UNITS
+        --         ) = 0 then null
+        --         when (
+        --                 command_active_partner = 1
+        --                 and automate_active_partner = 1
+        --         ) then RMM_UNITS
+        --         when (
+        --                 command_active_partner = 1
+        --                 and automate_active_partner = 0
+        --         ) then RMM_Units_Additive
+        --         when (
+        --                 command_active_partner = 0
+        --                 and automate_active_partner = 1
+        --         ) then RMM_UNITS
+        --         else 0
+        -- end as "Total RMM Units",
+        -------------------------------------------------------------
+        -- PSA package assignment
+        -------------------------------------------------------------
+        -- PSA_PACKAGE, A.H. : Duplicate column?
+        case
+            when PSA_PACKAGE = 'Premium' then 'Best'
+            when PSA_PACKAGE = 'Legacy | Premium' then 'Best'
+            when PSA_PACKAGE = 'Premium | Standard' then 'Best'
+            when PSA_PACKAGE = 'Basic | Legacy | Standard' then 'Best'
+            when PSA_PACKAGE = 'Legacy' then 'Better'
+            when PSA_PACKAGE = 'Standard' then 'Better'
+            when PSA_PACKAGE = 'Legacy | Standard' then 'Better'
+            when PSA_PACKAGE = 'Basic' then 'Good'
+            when PSA_PACKAGE = 'Basic | Legacy' then 'Good'
+            when PSA_PACKAGE = 'Basic | Standard' then 'Good'
+            when PSA_PACKAGE is null then null
+        end as Legacy,
+        case
+            when SELL_ACTIVE_PARTNER > 0 then 'Best'
+            when BRIGHTGAUGE_ACTIVE_PARTNER = 0
+            and Legacy is not null then Legacy
+            when MANAGE_ACTIVE_PARTNER > 0
+            and BRIGHTGAUGE_ACTIVE_PARTNER > 0 then 'Better'
+            else 'None'
+        end as "PSA Package Active Use FINAL",
+        case
+            when "PSA Package Active Use FINAL" = 'Better' then 'Bus Mgmt Standard'
+            when "PSA Package Active Use FINAL" = 'Best' then 'Bus Mgmt Advanced'
+            when "PSA Package Active Use FINAL" = 'Good' then 'Bus Mgmt Core'
+            else null
+        end as Future,
+        --                     MSB_FLAG,
+        case
+            when Future = 'Bus Mgmt Advanced' then max(pb."Best")
+            when Future = 'Bus Mgmt Standard' then max(pb."Better")
+            when Future = 'Bus Mgmt Core' then max(pb."Good")
+            else null
+        end as "List Price",
+        case
+            when "PSA Package Active Use FINAL" = 'Better' then min(pb."Better")
+            when "PSA Package Active Use FINAL" = 'Best' then min(pb."Best")
+            when "PSA Package Active Use FINAL" = 'Good' then min(pb."Good")
+            ELSE 0
+        end as "Bus Mgmt Future Price Per Seat",
+        (PSA_UNITS * "Bus Mgmt Future Price Per Seat") as "Future Monthly Price",
+        "Current Monthly Total",
+        cmp,
+        excluded_BMS,
+        ("Future Monthly Price" - cmp) / nullifzero(cmp) "Monthly Price Increase %",
+        (
+            "Future Monthly Price" + iff(excluded_BMS is null, 0, excluded_BMS)
+        ) as future_monthly_total_BMS,
+        --------------------------------------------------------
+        --Pricebook details (A.H. needs checking)
+        max(pb.LOWERBOUND) as max_lowerbound,
+        max(rmmpb.lowerbound) as max_lowerbound_rmm,
+        max(REFERENCE_CURRENCY) as REFERENCE_CURRENCY,
+        has_BMS_package,
+        has_CW_RMM,
+        MSB_FLAG,
+        date_trunc('day', cast(GETDATE() as date)) AS RUN_DATE
+    FROM
+        customer_roster cr
+        LEFT JOIN contract c ON c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
+        LEFT JOIN customer_healthscores chs ON chs.COMPANY_ID = cr.COMPANY_ID
+        LEFT JOIN customer_touch_tier ctt ON ctt.APPLIED_DATE = cr.REPORTING_DATE
+        AND ctt.SHIP_TO = cr.COMPANY_ID
+        LEFT JOIN customer_contract_type cct ON cct.APPLIED_DATE = cr.REPORTING_DATE
+        AND cct.SHIP_TO = cr.COMPANY_ID
+        LEFT JOIN customer_psa_package cpp ON cpp.COMPANY_ID = cr.COMPANY_ID
+        LEFT JOIN customer_tenure ct ON ct.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
+        LEFT JOIN automate_manage_calc amc on amc.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID --merged queries
+        left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING arr_c on arr_c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
+        left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK pb on pb.CUR = REFERENCE_CURRENCY
+        and pb.LOWERBOUND <= PSA_UNITS
+        left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_RMM_PRICEBOOK rmmpb on rmmpb.CUR = REFERENCE_CURRENCY
+        and rmmpb.LOWERBOUND <= (
+            --COMMAND_SERVER_UNITS + COMMAND_NETWORK_UNITS + COMMAND_DESKTOP_UNITS + cr.AUTOMATE_UNITS +
+            iff(
+                automate_active_partner > 0,
+                cr.AUTOMATE_UNITS,
+                iff(
+                    command_active_partner > 0,
+                    COMMAND_TOTAL_UNITS,
+                    0
+                )
             )
         )
-    )
-    left join monthly_price_cmp on cr.COMPANY_NAME_WITH_ID = monthly_price_cmp.COMPANY_NAME_WITH_ID
-    left join monthly_price_cmp_rmm on cr.COMPANY_NAME_WITH_ID = monthly_price_cmp_rmm.COMPANY_NAME_WITH_ID
-    left join (
-        select
-            distinct id,
-            CWS_ACCOUNT_UNIQUE_IDENTIFIER_C
-        from
-            ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__ACCOUNT
-    ) bsa on bsa.ID = cr.COMPANY_ID
-where
-    CURRENT_ARR <> 0 --filtered current arr to not be 0
-    and cr.COMPANY_ID not in (
-        'lopez@cinformatique.ch',
-        'JEREMY.A.BECKER@GMAIL.COM',
-        'blairphillips@gmail.com',
-        'Chad@4bowers.net',
-        'dev@bcsint.com',
-        'bob@compu-gen.com',
-        'Greg@ablenetworksnj.com',
-        'screenconnect.com@solutionssquad.com',
-        'andrew@gmal.co.uk',
-        '144274'
-    ) -- filtered rows to exclude these
+        left join monthly_price_cmp on cr.COMPANY_NAME_WITH_ID = monthly_price_cmp.COMPANY_NAME_WITH_ID
+        left join monthly_price_cmp_rmm on cr.COMPANY_NAME_WITH_ID = monthly_price_cmp_rmm.COMPANY_NAME_WITH_ID
+        left join (
+            select
+                distinct id,
+                CWS_ACCOUNT_UNIQUE_IDENTIFIER_C
+            from
+                ANALYTICS.DBO_TRANSFORMATION.BASE_SALESFORCE__ACCOUNT
+        ) bsa on bsa.ID = cr.COMPANY_ID
+    where
+        CURRENT_ARR <> 0 --filtered current arr to not be 0
+        and cr.COMPANY_ID not in (
+            'lopez@cinformatique.ch',
+            'JEREMY.A.BECKER@GMAIL.COM',
+            'blairphillips@gmail.com',
+            'Chad@4bowers.net',
+            'dev@bcsint.com',
+            'bob@compu-gen.com',
+            'Greg@ablenetworksnj.com',
+            'screenconnect.com@solutionssquad.com',
+            'andrew@gmal.co.uk',
+            '144274'
+        ) -- filtered rows to exclude these
+        -- and cr.COMPANY_NAME_WITH_ID = 'Visual Edge Inc. (0016g00000pU2CnAAK)'
+    group by
+        cr.COMPANY_ID,
+        cr.COMPANY_NAME_WITH_ID,
+        CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
+        cr.reporting_date,
+        cr.COMPANY_NAME,
+        cr.CURRENT_ARR,
+        cr.itnation_peer_group_active_partner,
+        cr.manage_active_partner,
+        cr.control_active_partner,
+        cr.automate_active_partner,
+        cr.sell_active_partner,
+        cr.fortify_active_partner,
+        cr.command_active_partner,
+        cr.brightgauge_active_partner,
+        cr.recover_active_partner,
+        cr.help_desk_active_partner,
+        cr.security_active_partner,
+        cr.itboost_active_partner,
+        cr.webroot_active_partner,
+        cr.Automate_Units,
+        cr.COMMAND_DESKTOP_UNITS,
+        cr.COMMAND_NETWORK_UNITS,
+        cr.COMMAND_SERVER_UNITS,
+        cr.HELP_DESK_UNITS,
+        cr.SECURITY_UNITS,
+        SELL_ARR,
+        BRIGHTGAUGE_ARR,
+        ITBOOST_ARR,
+        RMM_ADDITIONAL_ARR,
+        HELP_DESK_ARR,
+        SECURITY_ARR,
+        OTHER_ARR,
+        COMMAND_ARR,
+        cr.SELL_CLOUD,
+        cr.SELL_LEGACY_ON_PREM,
+        cr.SELL_ON_PREM,
+        cr.BRIGHTGAUGE_CLOUD,
+        cr.BRIGHTGAUGE_LEGACY_ON_PREM,
+        cr.BRIGHTGAUGE_ON_PREM,
+        cr.ITBOOST_CLOUD,
+        cr.ITBOOST_LEGACY_ON_PREM,
+        cr.ITBOOST_ON_PREM,
+        cr.HELP_DESK_CLOUD,
+        cr.HELP_DESK_LEGACY_ON_PREM,
+        cr.HELP_DESK_ON_PREM,
+        cr.SECURITY_CLOUD,
+        cr.SECURITY_LEGACY_ON_PREM,
+        cr.SECURITY_ON_PREM,
+        cr.OTHER_CLOUD,
+        cr.OTHER_LEGACY_ON_PREM,
+        cr.OTHER_ON_PREM,
+        cr.THIRD_PARTY_MRR,
+        cr.WEBROOT_MRR,
+        cr.WEBROOT_UNITS,
+        cr.WEBROOT_OVERAGE_MRR,
+        cr.WEBROOT_OVERAGE_UNITS,
+        HEALTHSCORE,
+        HEALTHSCORE_ALPHA,
+        TOUCH_TIER,
+        "Deal Value",
+        cct.CONTRACT_TYPE,
+        ct.CORPORATE_START_DATE,
+        ct.CORPORATE_TENURE,
+        ct.PSA_START_DATE,
+        ct.PSA_TENURE,
+        ct.RMM_START_DATE,
+        ct.RMM_TENURE,
+        ct.SECURITY_START_DATE,
+        ct.SECURITY_TENURE,
+        cpp.PSA_PACKAGE,
+        c.CONTRACT_NUMBER,
+        c.Earliest_Date,
+        c.Products,
+        PSA_LEGACY_ON_PREM,
+        PSA_ON_PREM,
+        PSA_CLOUD,
+        AUTOMATE_LEGACY_ON_PREM,
+        AUTOMATE_ON_PREM,
+        AUTOMATE_CLOUD,
+        PSA_ARR,
+        PSA_UNITS,
+        PSA_ON_PREM_ARR,
+        PSA_CLOUD_ARR,
+        PSA_LEGACY_ON_PREM_ARR,
+        PSA_ON_PREM_UNITS,
+        PSA_CLOUD_UNITS,
+        PSA_LEGACY_ON_PREM_UNITS,
+        AUTOMATE_CLOUD_ARR,
+        AUTOMATE_ON_PREM_ARR,
+        AUTOMATE_LEGACY_ON_PREM_ARR,
+        AUTOMATE_CLOUD_UNITS,
+        AUTOMATE_ON_PREM_UNITS,
+        AUTOMATE_LEGACY_ON_PREM_UNITS,
+        AUTOMATE_ARR,
+        CR.COMMAND_TOTAL_UNITS,
+        "Current Monthly Total RMM",
+        cmp_rmm,
+        "Current Monthly Total",
+        cmp,
+        has_BMS_package,
+        has_CW_RMM,
+        MSB_FLAG,
+        monthly_price_cmp_rmm.noc_future_monthly_price,
+        monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku,
+        excluded_BMS
+),
+"Current ARR All Categories" as (
+    select
+        COMPANY_ID,
+        COMPANY_NAME_WITH_ID,
+        sum(ARR_UNIFIED) as ARR_UNIFIED_sum
+    from
+        arr_billings arr
+    where
+        REPORTING_DATE = (
+            select
+                max(REPORTING_DATE)
+            from
+                dataiku.PRD_DATAIKU_WRITE.REPORTING_DATE_LIMIT
+        )
+    group by
+        1,
+        2
+),
+last_year_arr as (
+    select
+        COMPANY_ID,
+        COMPANY_NAME_WITH_ID,
+        REPORTING_DATE,
+        sum(ARR_UNIFIED) as last_year_arr
+    from
+        DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING
+    where
+        REPORTING_DATE = (
+            select
+                DATEADD(year, -1, max(REPORTING_DATE))
+            from
+                dataiku.PRD_DATAIKU_WRITE.REPORTING_DATE_LIMIT
+        )
+    group by
+        1,
+        2,
+        3
+)
+select
+    f.*,
+    ---------------------------------------------------------
+    ------- final score calculation ------
+    ---------------------------------------------------------
+    case
+        when CORPORATE_TENURE >= 72 then 3
+        when CORPORATE_TENURE <= 12 then 0
+        when CORPORATE_TENURE >= 60 then 2
+        else 1
+    end as customer_tenure_points,
+    case
+        when CONTRACT_TYPE = 'Non-Bedrock M2M | Renewable' then 'Contracted'
+        when CONTRACT_TYPE = 'Renewable' then 'Contracted'
+        when CONTRACT_TYPE = 'Evergreen | Non-Bedrock M2M | Renewable' then 'Hybrid'
+        when CONTRACT_TYPE = 'Evergreen | Renewable' then 'Hybrid'
+        when CONTRACT_TYPE = 'Non-Bedrock M2M | One-time | Renewable' then 'Hybrid'
+        when CONTRACT_TYPE = 'One-time | Renewable' then 'Hybrid'
+        when CONTRACT_TYPE = 'Evergreen | Non-Bedrock M2M | One-time | Renewable' then 'Hybrid'
+        when CONTRACT_TYPE = 'Evergreen | One-time | Renewable' then 'Hybrid'
+        when CONTRACT_TYPE = 'Evergreen | Non-Bedrock M2M | One-time' then 'Hybrid'
+        when CONTRACT_TYPE = 'Evergreen | One-time' then 'Hybrid'
+        when CONTRACT_TYPE = 'Evergreen' then 'Monthly'
+        when CONTRACT_TYPE = 'Evergreen | Non-Bedrock M2M' then 'Monthly'
+        when CONTRACT_TYPE = 'Non-Bedrock M2M' then 'None'
+        when CONTRACT_TYPE = '0' then 'None'
+        when CONTRACT_TYPE = 'Non-Bedrock M2M | One-time' then 'One-time'
+        when CONTRACT_TYPE = 'One-time' then 'One-time'
+    end as contract_mapping,
+    iff(contract_mapping = 'None', 1, 0) as Contract_Available,
+    case
+        when contract_mapping = 'Contracted' then 1
+        when contract_mapping = 'Monthly' then 1
+        when contract_mapping = 'One-Time' then 0
+        when contract_mapping = 'Hybrid' then 0
+        when contract_mapping = 'None' then 0
+        else 0
+    end as contract_points,
+    ARR_UNIFIED_sum,
+    last_year_arr,
+    (ARR_UNIFIED_sum - last_year_arr) / nullifzero(last_year_arr) as arr_change,
+    --                 case
+    --                     when ARR_UNIFIED_sum is null and last_year_arr is null then 0
+    --                     when arr_change is null then 1
+    --                     else 0
+    --                         end as ARR_change_available,
+    iff(arr_change is null, 1, 0) as ARR_change_available,
+    case
+        when "Gainsight Risk" = 'A-B' then 2
+        when "Gainsight Risk" = 'C' then 1
+        when "Gainsight Risk" = 'D-F' then -1
+        when "Gainsight Risk" = 'None' then 0
+        else 0
+    end as "Gainsight Risk Points",
+    "Gainsight Score Available",
+    17 - (
+        iff(Contract_Available = 1, 1, 0) + iff(ARR_change_available = 1, 2, 0) + iff(
+            "Gainsight Score Available" = 1,
+            max("Gainsight Risk Points"),
+            0
+        )
+    ) as max_available_score,
+    case
+        when arr_change is null then 0
+        when arr_change >=.1 then 2
+        when arr_change < -.1 then 0
+        else 1
+    end as previous_contracts,
+    case
+        when "Deal Value" = 'Tech Touch' then 3
+        when "Deal Value" = 'Low Touch' then 2
+        when "Deal Value" = 'High Touch' then 1
+        else 0
+    end as deal_value_points,
+    case
+        when (
+            SECURITY_ACTIVE_PARTNER > 0
+            and FORTIFY_ACTIVE_PARTNER > 0
+            and BRIGHTGAUGE_ACTIVE_PARTNER > 0
+        ) then 'Best'
+        when (
+            SECURITY_ACTIVE_PARTNER > 0
+            or FORTIFY_ACTIVE_PARTNER > 0
+        )
+        and (
+            SECURITY_ACTIVE_PARTNER = 0
+            or FORTIFY_ACTIVE_PARTNER = 0
+        ) then 'Good'
+        when (
+            SECURITY_ACTIVE_PARTNER > 0
+            and FORTIFY_ACTIVE_PARTNER > 0
+        ) then 'Better'
+        else 'None'
+    end as security_package,
+    case
+        when security_package = 'Good' then.36
+        when security_package = 'Better' then.99
+        when security_package = 'Best' then.99
+        else 0
+    end as sc_package_value,
+    case
+        when (
+            SECURITY_ACTIVE_PARTNER > 0
+            or FORTIFY_ACTIVE_PARTNER > 0
+        ) then.99
+        else 0
+    end as fortify_security_value,
+    case
+        when (
+            security_package <> 'None'
+            or BRIGHTGAUGE_ACTIVE_PARTNER > 0
+        ) then.45
+        else 0
+    end as sc_bg_value,
+    case
+        when (
+            security_package <> 'None'
+            or ITBOOST_ACTIVE_PARTNER > 0
+        ) then.18
+        else 0
+    end as sc_it_value,
+    (
+        fortify_security_value + sc_bg_value + sc_it_value
+    ) as current_value_2,
+    (sc_package_value - current_value_2) as sc_value_add,
+    case
+        when AUTOMATE_ACTIVE_PARTNER > 0 then.41
+        else 0
+    end as automate_value,
+    case
+        when COMMAND_ACTIVE_PARTNER > 0 then.2
+        else 0
+    end as command_value,
+    case
+        when BRIGHTGAUGE_ACTIVE_PARTNER > 0 then.28
+        else 0
+    end as RMM_IT_value,
+    case
+        when ITBOOST_ACTIVE_PARTNER > 0 then.11
+        else 0
+    end as RMM_BG_value,
+    (
+        automate_value + command_value + RMM_IT_value + RMM_BG_value
+    ) as current_value_1,
+    case
+        when "RMM Package" = 'Best' then 1.00
+        when "RMM Package" = 'Better' then.80
+        when "RMM Package" = 'Good' then.41
+        else 0
+    end as rmm_package_value,
+    iff(
+        rmm_package_value - current_value_1 < 0,
+        0,
+        rmm_package_value - current_value_1
+    ) as rmm_value_add,
+    case
+        when "PSA Package Active Use FINAL" = 'Best' then 1.00
+        when "PSA Package Active Use FINAL" = 'Better' then.87
+        when "PSA Package Active Use FINAL" = 'Good' then.41
+        else 0
+    end as psa_package_value,
+    case
+        when MANAGE_ACTIVE_PARTNER > 0 then.408188060838409
+        else 0
+    end as manage_value,
+    case
+        when SELL_ACTIVE_PARTNER > 0 then.13131634937289
+        else 0
+    end as sell_value,
+    case
+        when (
+            ITBOOST_ACTIVE_PARTNER > 0
+            and psa_package_value is null
+        ) then 0.0944352156335984
+        else 0
+    end as psa_it_value,
+    case
+        when (
+            BRIGHTGAUGE_ACTIVE_PARTNER > 0
+            and psa_package_value is null
+        ) then.366060374155103
+        else 0
+    end as psa_bg_value,
+    (
+        manage_value + sell_value + psa_it_value + psa_bg_value
+    ) as current_psa_value,
+    (psa_package_value - current_psa_value) as psa_value_add,
+    iff(
+        sc_value_add + rmm_value_add + psa_value_add > 0,
+        sc_value_add + rmm_value_add + psa_value_add,
+        0
+    ) as total_value_add,
+    case
+
+        when (
+            total_value_add < 0
+            or total_value_add > 1
+        ) then 0
+        when total_value_add between 0
+        and.25 then 0
+        when total_value_add between.26
+        and.5 then 1
+        when total_value_add between.51
+        and 1 then -1
+        else 0
+    end as migration_value_add,
+    (3) -(
+        iff("PSA Package Active Use FINAL" = 'None', 1, 0) + iff("RMM Package" = 'NA', 1, 0) + iff(security_package = 'None', 1, 0)
+    ) as number_of_modules_used,
+    case
+        when number_of_modules_used = 3 then 2
+        when number_of_modules_used = 2 then 1
+        when number_of_modules_used = 1 then 0
+        else 0
+    end as current_product_usage_tenure_poiints,
+    iff("IT Nation" = 'Active Member', 1, 0) as peer_group_membership,
+    case
+        when "On-Prem/Hybrid" = 0 then 1
+        else 0
+    end as on_prem_risk,
+    iff(
+        customer_tenure_points + contract_points + previous_contracts + deal_value_points + migration_value_add + current_product_usage_tenure_poiints + peer_group_membership + "Gainsight Risk Points" + on_prem_risk > 0,
+        customer_tenure_points + contract_points + previous_contracts + deal_value_points + migration_value_add + current_product_usage_tenure_poiints + peer_group_membership + "Gainsight Risk Points" + on_prem_risk,
+        0
+    ) as raw_risk,
+    round((raw_risk / max_available_score) * 15, 0) as final_score,
+    case
+        when final_score between 0
+        and 5 then 'High'
+        when final_score between 6
+        and 7 then 'Moderate'
+        when final_score between 8
+        and 9 then 'Low'
+        when final_score >= 10 then 'Limited'
+    end as risk_level,
+    concat(risk_level, ' ', '-', ' ', final_score) as Risk_to_migrate
+from
+    final_table f
+    left join "Current ARR All Categories" arr_cat on f.COMPANY_NAME_WITH_ID = arr_cat.COMPANY_NAME_WITH_ID
+    left join last_year_arr lyarr on lyarr.COMPANY_NAME_WITH_ID = f.COMPANY_NAME_WITH_ID
 group by
-    cr.COMPANY_ID,
-    cr.COMPANY_NAME_WITH_ID,
-    CWS_ACCOUNT_UNIQUE_IDENTIFIER_C,
-    cr.reporting_date,
-    cr.COMPANY_NAME,
-    cr.CURRENT_ARR,
-    cr.itnation_peer_group_active_partner,
-    cr.manage_active_partner,
-    cr.control_active_partner,
-    cr.automate_active_partner,
-    cr.sell_active_partner,
-    cr.fortify_active_partner,
-    cr.command_active_partner,
-    cr.brightgauge_active_partner,
-    cr.recover_active_partner,
-    cr.help_desk_active_partner,
-    cr.security_active_partner,
-    cr.itboost_active_partner,
-    cr.webroot_active_partner,
-    cr.Automate_Units,
-    cr.COMMAND_DESKTOP_UNITS,
-    cr.COMMAND_NETWORK_UNITS,
-    cr.COMMAND_SERVER_UNITS,
-    cr.HELP_DESK_UNITS,
-    cr.SECURITY_UNITS,
-    SELL_ARR,
-    BRIGHTGAUGE_ARR,
-    ITBOOST_ARR,
-    RMM_ADDITIONAL_ARR,
-    HELP_DESK_ARR,
-    SECURITY_ARR,
-    OTHER_ARR,
-    COMMAND_ARR,
-    cr.SELL_CLOUD,
-    cr.SELL_LEGACY_ON_PREM,
-    cr.SELL_ON_PREM,
-    cr.BRIGHTGAUGE_CLOUD,
-    cr.BRIGHTGAUGE_LEGACY_ON_PREM,
-    cr.BRIGHTGAUGE_ON_PREM,
-    cr.ITBOOST_CLOUD,
-    cr.ITBOOST_LEGACY_ON_PREM,
-    cr.ITBOOST_ON_PREM,
-    cr.HELP_DESK_CLOUD,
-    cr.HELP_DESK_LEGACY_ON_PREM,
-    cr.HELP_DESK_ON_PREM,
-    cr.SECURITY_CLOUD,
-    cr.SECURITY_LEGACY_ON_PREM,
-    cr.SECURITY_ON_PREM,
-    cr.OTHER_CLOUD,
-    cr.OTHER_LEGACY_ON_PREM,
-    cr.OTHER_ON_PREM,
-    cr.THIRD_PARTY_MRR,
-    cr.WEBROOT_MRR,
-    cr.WEBROOT_UNITS,
-    cr.WEBROOT_OVERAGE_MRR,
-    cr.WEBROOT_OVERAGE_UNITS,
-    HEALTHSCORE,
-    HEALTHSCORE_ALPHA,
-    TOUCH_TIER,
-    "Deal Value",
-    cct.CONTRACT_TYPE,
-    ct.CORPORATE_START_DATE,
-    ct.CORPORATE_TENURE,
-    ct.PSA_START_DATE,
-    ct.PSA_TENURE,
-    ct.RMM_START_DATE,
-    ct.RMM_TENURE,
-    ct.SECURITY_START_DATE,
-    ct.SECURITY_TENURE,
-    cpp.PSA_PACKAGE,
-    c.CONTRACT_NUMBER,
-    c.Earliest_Date,
-    c.Products,
-    PSA_LEGACY_ON_PREM,
-    PSA_ON_PREM,
-    PSA_CLOUD,
-    AUTOMATE_LEGACY_ON_PREM,
-    AUTOMATE_ON_PREM,
-    AUTOMATE_CLOUD,
-    PSA_ARR,
-    PSA_UNITS,
-    PSA_ON_PREM_ARR,
-    PSA_CLOUD_ARR,
-    PSA_LEGACY_ON_PREM_ARR,
-    PSA_ON_PREM_UNITS,
-    PSA_CLOUD_UNITS,
-    PSA_LEGACY_ON_PREM_UNITS,
-    AUTOMATE_CLOUD_ARR,
-    AUTOMATE_ON_PREM_ARR,
-    AUTOMATE_LEGACY_ON_PREM_ARR,
-    AUTOMATE_CLOUD_UNITS,
-    AUTOMATE_ON_PREM_UNITS,
-    AUTOMATE_LEGACY_ON_PREM_UNITS,
-    AUTOMATE_ARR,
-    CR.COMMAND_TOTAL_UNITS,
-    "Current Monthly Total RMM",
-    cmp_rmm,
-    "Current Monthly Total",
-    cmp,
-    has_BMS_package,
-    has_CW_RMM,
-    MSB_FLAG
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    arr_unified_sum,
+    LAST_YEAR_ARR,
+    RUN_DATE
+  
