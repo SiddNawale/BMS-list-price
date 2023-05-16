@@ -1791,7 +1791,7 @@ final_table as (
                 0,
                 "Future Monthly Price RMM"
             )
-        ) /("Current Monthly Total RMM") as "Total Monthly Price Increase RMM %",
+        ) /nullifzero("Current Monthly Total RMM") as "Total Monthly Price Increase RMM %",
             
         -- A.H. : Needs to be updated :
         -- case
