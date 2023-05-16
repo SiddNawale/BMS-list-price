@@ -1790,6 +1790,7 @@ final_table as (
                 "Future Monthly Price RMM" is null,
                 0,
                 "Future Monthly Price RMM"
+                - "Current Monthly Total RMM"
             )
         ) /nullifzero("Current Monthly Total RMM") as "Total Monthly Price Increase RMM %",
             
