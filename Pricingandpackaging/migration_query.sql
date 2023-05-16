@@ -1683,7 +1683,7 @@ final_table as (
         (AUTOMATE_ARR + cr.COMMAND_ARR) as RMM_ARR,
         iff(
             automate_active_partner > 0,
-            'Essentials WO RPP',
+            'CW RMM Essentials',
             iff(
                 command_active_partner > 0,
                 'CW RMM Pro',
