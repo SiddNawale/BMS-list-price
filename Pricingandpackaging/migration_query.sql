@@ -1761,10 +1761,38 @@ final_table as (
         monthly_price_cmp_rmm.noc_future_monthly_price,
         monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku,
         ("Future Monthly Price RMM" - cmp_rmm) / nullifzero(cmp_rmm) "Monthly Software Price Increase RMM %",
-        monthly_price_cmp_rmm.noc_future_monthly_price + monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku + "Future Monthly Price RMM" as future_monthly_total_RMM,
+
+        --         monthly_price_cmp_rmm.noc_future_monthly_price + monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku + "Future Monthly Price RMM" as future_monthly_total_RMM,
+        iff(
+            monthly_price_cmp_rmm.noc_future_monthly_price is null,
+            0,
+            monthly_price_cmp_rmm.noc_future_monthly_price
+        ) + iff(
+            monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku is null,
+            0,
+            monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku
+        ) + iff(
+            "Future Monthly Price RMM" is null,
+            0,
+            "Future Monthly Price RMM"
+        ) as future_monthly_total_RMM,
         (
-            monthly_price_cmp_rmm.noc_future_monthly_price + monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku + "Future Monthly Price RMM" - "Current Monthly Total RMM"
+            --             monthly_price_cmp_rmm.noc_future_monthly_price + monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku + "Future Monthly Price RMM" - "Current Monthly Total RMM"
+            iff(
+                monthly_price_cmp_rmm.noc_future_monthly_price is null,
+                0,
+                monthly_price_cmp_rmm.noc_future_monthly_price
+            ) + iff(
+                monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku is null,
+                0,
+                monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku
+            ) + iff(
+                "Future Monthly Price RMM" is null,
+                0,
+                "Future Monthly Price RMM"
+            )
         ) /("Current Monthly Total RMM") as "Total Monthly Price Increase RMM %",
+            
         -- A.H. : Needs to be updated :
         -- case
         --         when (
