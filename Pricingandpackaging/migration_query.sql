@@ -1840,16 +1840,16 @@ final_table as (
             else 'None'
         end as "PSA Package Active Use FINAL",
         case
-            when "PSA Package Active Use FINAL" = 'Better' then 'Bus Mgmt Standard'
-            when "PSA Package Active Use FINAL" = 'Best' then 'Bus Mgmt Advanced'
-            when "PSA Package Active Use FINAL" = 'Good' then 'Bus Mgmt Core'
+            when "PSA Package Active Use FINAL" = 'Better' then 'Bus Mgmt Pro'
+            when "PSA Package Active Use FINAL" = 'Best' then 'Bus Mgmt Premium'
+            when "PSA Package Active Use FINAL" = 'Good' then 'Bus Mgmt Essentials'
             else null
         end as Future,
         --                     MSB_FLAG,
         case
-            when Future = 'Bus Mgmt Advanced' then max(pb."Best")
-            when Future = 'Bus Mgmt Standard' then max(pb."Better")
-            when Future = 'Bus Mgmt Core' then max(pb."Good")
+            when Future = 'Bus Mgmt Premium' then max(pb."Best")
+            when Future = 'Bus Mgmt Pro' then max(pb."Better")
+            when Future = 'Bus Mgmt Essentials' then max(pb."Good")
             else null
         end as "List Price",
         case
