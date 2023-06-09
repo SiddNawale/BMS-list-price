@@ -90,7 +90,7 @@ WITH arr_billings as (
             0
         ) as MSB_FLAG
     from
-        DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING
+        DATAIKU.DEV_DATAIKU_WRITE.PNP_DASHBOARD_ARR_AND_BILLING
     where
         REPORTING_DATE = (
             select
@@ -1568,7 +1568,6 @@ final_table as (
         -----------------------------------------------------------------
         -- from automate_and_manage_cal table (amc)
         -- start of expanded columns and removed amc.company_id, manage category, and automate category
-
         iff(
             PSA_LEGACY_ON_PREM is null,
             0,
@@ -1704,12 +1703,12 @@ final_table as (
         --         and brightgauge_active_partner = 0 then 'CWRMMEPBSTND-W-O-EPP'
         --     when automate_active_partner > 0
         --         and webroot_active_partner = 0
-        --         and brightgauge_active_partner > 0 then 'CW-RMM-ADV-WOUT-EPP'
+        --         and brightgauge_active_partner > 0 then 'CW-RMM-qADV-WOUT-EPP'
         --     else 'None'
         --     end                                          as          "RMM Package",
         -----------------------------
         -- Place holder so PBI reloads
-        'NA' as "RMM Package",
+        future_RMM as "RMM Package",
         0 as AUTOMATE_UNITS_CALC,
         iff(cr.AUTOMATE_UNITS > 0, 0, 0) as AUTOMATE_UNITS_CALC,
         -- Old logic :
@@ -1761,7 +1760,6 @@ final_table as (
         monthly_price_cmp_rmm.noc_future_monthly_price,
         monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku,
         ("Future Monthly Price RMM" - cmp_rmm) / nullifzero(cmp_rmm) "Monthly Software Price Increase RMM %",
-
         --         monthly_price_cmp_rmm.noc_future_monthly_price + monthly_price_cmp_rmm.HD_total_monthly_future_price_by_sku + "Future Monthly Price RMM" as future_monthly_total_RMM,
         iff(
             monthly_price_cmp_rmm.noc_future_monthly_price is null,
@@ -1790,11 +1788,8 @@ final_table as (
                 "Future Monthly Price RMM" is null,
                 0,
                 "Future Monthly Price RMM"
-              
-            )
-              - "Current Monthly Total RMM"
-        ) /nullifzero("Current Monthly Total RMM") as "Total Monthly Price Increase RMM %",
-            
+            ) - "Current Monthly Total RMM"
+        ) / nullifzero("Current Monthly Total RMM") as "Total Monthly Price Increase RMM %",
         -- A.H. : Needs to be updated :
         -- case
         --         when (
@@ -1886,10 +1881,10 @@ final_table as (
         LEFT JOIN customer_psa_package cpp ON cpp.COMPANY_ID = cr.COMPANY_ID
         LEFT JOIN customer_tenure ct ON ct.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
         LEFT JOIN automate_manage_calc amc on amc.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID --merged queries
-        left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING arr_c on arr_c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
-        left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK pb on pb.CUR = REFERENCE_CURRENCY
+        left join DATAIKU.DEV_DATAIKU_WRITE.PNP_DASHBOARD_ARR_AND_BILLING arr_c on arr_c.COMPANY_NAME_WITH_ID = cr.COMPANY_NAME_WITH_ID
+        left join DATAIKU.DEV_DATAIKU_WRITE.PNP_DASHBOARD_BUSINESS_MANAGEMENT_PRICEBOOK pb on pb.CUR = REFERENCE_CURRENCY
         and pb.LOWERBOUND <= PSA_UNITS
-        left join DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_RMM_PRICEBOOK rmmpb on rmmpb.CUR = REFERENCE_CURRENCY
+        left join DATAIKU.DEV_DATAIKU_WRITE.PNP_DASHBOARD_RMM_PRICEBOOK rmmpb on rmmpb.CUR = REFERENCE_CURRENCY
         and rmmpb.LOWERBOUND <= (
             --COMMAND_SERVER_UNITS + COMMAND_NETWORK_UNITS + COMMAND_DESKTOP_UNITS + cr.AUTOMATE_UNITS +
             iff(
@@ -2058,7 +2053,7 @@ last_year_arr as (
         REPORTING_DATE,
         sum(ARR_UNIFIED) as last_year_arr
     from
-        DATAIKU.DEV_DATAIKU_STAGING.PNP_DASHBOARD_ARR_AND_BILLING
+        DATAIKU.DEV_DATAIKU_WRITE.PNP_DASHBOARD_ARR_AND_BILLING
     where
         REPORTING_DATE = (
             select
@@ -2216,9 +2211,8 @@ select
         automate_value + command_value + RMM_IT_value + RMM_BG_value
     ) as current_value_1,
     case
-        when "RMM Package" = 'Best' then 1.00
-        when "RMM Package" = 'Better' then.80
-        when "RMM Package" = 'Good' then.41
+        when "RMM Package" = 'CW RMM Pro' then 1.00
+        when "RMM Package" = 'CW RMM Essentials' then.80
         else 0
     end as rmm_package_value,
     iff(
@@ -2264,7 +2258,6 @@ select
         0
     ) as total_value_add,
     case
-
         when (
             total_value_add < 0
             or total_value_add > 1
@@ -2278,22 +2271,22 @@ select
         else 0
     end as migration_value_add,
     (3) -(
-        iff("PSA Package Active Use FINAL" = 'None', 1, 0) + iff("RMM Package" = 'NA', 1, 0) + iff(security_package = 'None', 1, 0)
+        iff("PSA Package Active Use FINAL" = 'None', 1, 0) + iff("RMM Package" = 'Undefined', 1, 0) + iff(security_package = 'None', 1, 0)
     ) as number_of_modules_used,
     case
         when number_of_modules_used = 3 then 2
         when number_of_modules_used = 2 then 1
         when number_of_modules_used = 1 then 0
         else 0
-    end as current_product_usage_tenure_poiints,
+    end as current_product_usage_tenure_points,
     iff("IT Nation" = 'Active Member', 1, 0) as peer_group_membership,
     case
         when "On-Prem/Hybrid" = 0 then 1
         else 0
     end as on_prem_risk,
     iff(
-        customer_tenure_points + contract_points + previous_contracts + deal_value_points + migration_value_add + current_product_usage_tenure_poiints + peer_group_membership + "Gainsight Risk Points" + on_prem_risk > 0,
-        customer_tenure_points + contract_points + previous_contracts + deal_value_points + migration_value_add + current_product_usage_tenure_poiints + peer_group_membership + "Gainsight Risk Points" + on_prem_risk,
+        customer_tenure_points + contract_points + previous_contracts + deal_value_points + migration_value_add + current_product_usage_tenure_points + peer_group_membership + "Gainsight Risk Points" + on_prem_risk > 0,
+        customer_tenure_points + contract_points + previous_contracts + deal_value_points + migration_value_add + current_product_usage_tenure_points + peer_group_membership + "Gainsight Risk Points" + on_prem_risk,
         0
     ) as raw_risk,
     round((raw_risk / max_available_score) * 15, 0) as final_score,
@@ -2453,4 +2446,3 @@ group by
     arr_unified_sum,
     LAST_YEAR_ARR,
     RUN_DATE
-  
